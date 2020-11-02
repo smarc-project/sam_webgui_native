@@ -63,6 +63,26 @@ public:
     SamDashboardWidget(roswasm::NodeHandle* nh);
 };
 
+class SamDashboardWidget2 {
+private:
+    bool was_leak;
+    TopicBuffer<sam_msgs::Leak>* leak;
+    TopicBuffer<sensor_msgs::NavSatFix>* gps;
+    TopicBuffer<sensor_msgs::BatteryState>* battery;
+    TopicBuffer<nav_msgs::Odometry>* odom;
+    TopicBuffer<sam_msgs::PercentStamped>* vbs;
+    TopicBuffer<sam_msgs::PercentStamped>* lcg;
+    TopicBuffer<sam_msgs::ThrusterRPMs>* rpms;
+    TopicBuffer<std_msgs::Float64>* depth;
+    TopicBuffer<std_msgs::Float64>* pitch;
+    TopicBuffer<std_msgs::Float64>* roll;
+    TopicBuffer<std_msgs::Float64>* yaw;
+public:
+    bool is_emergency() { return was_leak; }
+    void show_window(bool& show_dashboard_window);
+    SamDashboardWidget2(roswasm::NodeHandle* nh);
+};
+
 class SamTeleopWidget {
 private:
     bool enabled;
