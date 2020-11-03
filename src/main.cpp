@@ -31,20 +31,25 @@ roswasm_webgui::SamActuatorWidget* actuator_widget;
 roswasm_webgui::SamDashboardWidget* dashboard_widget;
 roswasm_webgui::SamDashboardWidget2* dashboard_widget2;
 roswasm_webgui::SamTeleopWidget* teleop_widget;
+roswasm_webgui::SamMonitorWidget* monitor_widget;
 
 GLFWwindow* g_window;
 //ImVec4 clear_color = ImVec4(0.45f, 0.55f, 0.60f, 1.00f);
 ImVec4 clear_color = ImVec4(0.25f, 0.45f, 0.55f, 1.00f);
 ImVec4 emergency_color = ImVec4(1.0f, 0.0f, 0.0f, 1.00f);
+ImVec4 good_color = ImVec4(0.0f, 0.71f, 0.06f, 1.00f);
 std::string colorString = "";
 float colorR, colorG, colorB;
 float col[4] = {0,0,0,0};
 int winSpacing = 30;
 int winWindth1 = 470;
-static int guiMode = 10;
+// static int guiMode = 100;
+static int guiMode = 200;
 static int guiModeOld = -1;
 // const std::vector<const char*> tabNames{"Setup", "Monitor", "Control", "Service", "Experiments"};
-const std::map<int, const char*> guiModes = {{10, "Setup"}, {20, "Monitor"}, {30, "Control"}, {40, "Service"}, {999, "Experiments"}};
+const std::map<int, const char*> guiModes = {{100, "Setup"}, {200, "Monitor"}, {250, "Cameras"}, {300, "Control"}, {400, "Service"}, {999, "Develop"}};
+// const std::map<const char*, int> guiModes = {{"Setup", 100}, {"Monitor", 200}, {"Cameras", 250}, {"Control", 300}, {"Service", 400}, {"Experiments", 999}};
+std::map<const char*, std::vector<int>> nodeStates;
 
 ImGuiContext* imgui = 0;
 bool show_demo_window = false;
@@ -52,11 +57,19 @@ bool show_monlaunch_window = true;
 bool show_image_window = true;
 bool show_actuator_window = true;
 bool show_dashboard_window = true;
-bool show_dashboard_window2 = true;
-bool show_teleop_window = true;
+bool show_experiment_dash_window = true;
+bool show_teleop_window = false;
+bool show_monitor_window = false;
+bool show_guiStats_window = false;
+bool show_roslog_window = true;
 
 bool dark_mode = true;
 bool emergency = false;
+bool guiDebug = false;
+bool nodeCrashed = false;
+
+// Forward declarations
+int drawTabs(int _guiMode, const std::map<int, const char*> _modeMap);
 
 EM_JS(int, canvas_get_width, (), {
   return Module.canvas.width;
@@ -84,9 +97,19 @@ void loop()
   ImGui::NewFrame();
 
   {
+    ImGui::SetNextWindowPos(ImVec2(width-210, height-70), ImGuiCond_FirstUseEver);
+    ImGui::SetNextWindowSize(ImVec2(200, 60), ImGuiCond_FirstUseEver);
+    ImGui::Begin("Debug");
+    ImGui::Checkbox("Debug mode", &guiDebug); ImGui::SameLine(120);
+    ImGui::Checkbox("Stats", &show_guiStats_window);
+    ImGui::End();
+  }
+
+  {
     ImGui::SetNextWindowPos(ImVec2(winSpacing, winSpacing), ImGuiCond_FirstUseEver);
     ImGui::SetNextWindowSize(ImVec2(winWindth1, 200), ImGuiCond_FirstUseEver);
     ImGui::Begin("Roswasm webgui"); //, &show_another_window);
+
     float sz = ImGui::GetTextLineHeight();
     std::string status_text;
     ImColor status_color;
@@ -104,59 +127,145 @@ void loop()
     ImGui::SameLine();
     ImGui::Text("%s", status_text.c_str());
 
-    // GUI mode selection
-    for (auto gm:guiModes)
+    monlaunch_widget->getStates(nodeStates);
+
+    nodeCrashed = false;
+    int nodesCrashed = 0;
+    int nodesRunning = 0;
+    int nodesTotal = 0;
+    for (auto LF:nodeStates)
     {
-      if (gm.first != guiModes.begin()->first) ImGui::SameLine();
-      ImGui::PushID(gm.first);
-      if(guiMode == gm.first) {
-          ImGui::PushStyleColor(ImGuiCol_Button, ImGui::GetColorU32(ImGuiCol_FrameBgActive));
-      } else {
-          ImGui::PushStyleColor(ImGuiCol_Button, ImGui::GetColorU32(ImGuiCol_FrameBg));
+      for(auto _state:LF.second) {
+        nodesTotal++;
+        if(_state == 2) {
+          nodeCrashed = true;
+          nodesCrashed++;
+        } else if(_state == 1) {
+          nodesRunning++;
+        }
       }
-      ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImGui::GetColorU32(ImGuiCol_FrameBgHovered));
-      ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImGui::GetColorU32(ImGuiCol_FrameBgActive));
-      if(ImGui::Button(gm.second, ImVec2(80,20))){
-          guiMode = gm.first;
+    }
+    if (nodesTotal){
+      const int _buttonWidth = 150;
+      const int availWidth = ImGui::GetContentRegionAvailWidth();
+      ImGui::SameLine();
+      // ImGui::SameLine(availWidth-_buttonWidth+8);
+      ImGui::PushID(1);
+      char label[32];
+      if(nodesCrashed)
+      {
+        ImGui::PushStyleColor(ImGuiCol_Button, emergency_color);
+        ImGui::PushStyleColor(ImGuiCol_ButtonHovered, emergency_color);
+        ImGui::PushStyleColor(ImGuiCol_ButtonActive, emergency_color);
+        if(nodesCrashed > 1)
+        {
+          sprintf(label, "Nodes crashed: %d", nodesCrashed);
+        }
+        else {
+          sprintf(label, "Node crashed");
+        }
+      }
+      else
+      {
+        ImGui::PushStyleColor(ImGuiCol_Button, good_color);
+        ImGui::PushStyleColor(ImGuiCol_ButtonHovered, good_color);
+        ImGui::PushStyleColor(ImGuiCol_ButtonActive, good_color);
+        sprintf(label, "Nodes running: %d/%d", nodesRunning, nodesTotal);
+      }
+      ImGui::AlignTextToFramePadding();
+      // if(ImGui::Button(label, ImVec2(_buttonWidth,15))){
+      if(ImGui::SmallButton(label)){
+        show_monlaunch_window = true;
       }
       ImGui::PopStyleColor(3);
       ImGui::PopID();
     }
-    if (guiMode != guiModeOld)  //  10=Setup, 20=Monitor, 30=Control, 40=Service, 999=Experiments
+
+    ImGui::Button("5x5", ImVec2(5, 5));
+    ImGui::SameLine();
+    ImGui::Button("8x8", ImVec2(8, 8));
+    ImGui::SameLine();
+    ImGui::Button("10x10", ImVec2(10, 10));
+    ImGui::SameLine();
+    ImGui::Button("11x11", ImVec2(11, 11));
+    ImGui::SameLine();
+    ImGui::Button("12x12", ImVec2(12, 5));
+    ImGui::SameLine();
+    ImGui::Button("13x13", ImVec2(13, 13));
+    ImGui::SameLine();
+    ImGui::Button("Button()");
+    ImGui::SameLine();
+    ImGui::SmallButton("SmallButton()");
+    // if (nodeCrashed){
+    //   const int _buttonWidth = 120;
+    //   const int availWidth = ImGui::GetContentRegionAvailWidth();
+    //   ImGui::SameLine(availWidth-_buttonWidth+8);
+    //   ImGui::PushID(1);
+    //   ImGui::PushStyleColor(ImGuiCol_Button, emergency_color);
+    //   ImGui::PushStyleColor(ImGuiCol_ButtonHovered, emergency_color);
+    //   ImGui::PushStyleColor(ImGuiCol_ButtonActive, emergency_color);
+    //   ImGui::AlignTextToFramePadding();
+    //   if(ImGui::Button("Node crashed!", ImVec2(_buttonWidth,15))){
+    //       show_monlaunch_window = true;
+    //   }
+    //   ImGui::PopStyleColor(3);
+    //   ImGui::PopID();
+    // }
+
+    guiMode = drawTabs(guiMode, guiModes);
+
+    if (guiMode != guiModeOld)  //  100=Setup, 200=Monitor, 300=Control, 400=Service, 999=Develop
     {
       guiModeOld = guiMode;
-      if (guiMode == 10)
+      if (guiMode == 100) // Setup
       {
         show_demo_window = false;
         show_monlaunch_window = true;
         show_image_window = true;
         show_actuator_window = true;
         show_dashboard_window = true;
-        show_dashboard_window2 = true;
-        show_teleop_window = true;
-      } else if (guiMode == 20)
+        show_experiment_dash_window = false;
+        show_teleop_window = false;
+        show_monitor_window = false;
+        show_roslog_window = true;
+      }
+      else if (guiMode == 200)  // Monitor
       {
         show_demo_window = false;
         show_monlaunch_window = false;
         show_image_window = true;
         show_actuator_window = false;
         show_dashboard_window = true;
-        show_dashboard_window2 = true;
+        show_experiment_dash_window = false;
         show_teleop_window = false;
+        show_monitor_window = true;
+        show_roslog_window = true;
       }
     }
 
+    // bool testy = false;
+    // if (ImGui::BeginTabBar("tabby", ImGuiButtonFlags_None))
+    // {
+    //     if (ImGui::BeginTabItem("hmm", testy, ImGuiButtonFlags_None))
+    //     {
+    //         ImGui::EndTabItem();
+    //     }
+    //     ImGui::EndTabBar();
+    // }
+    // Menu
+
+
     // Window display options
-    const int buttonSpacing = 180;
+    const int buttonSpacing = 150;
     ImGui::Checkbox("Launch control", &show_monlaunch_window);
-    ImGui::SameLine(buttonSpacing); ImGui::Checkbox("Extra button", &show_monlaunch_window);
+    ImGui::SameLine(buttonSpacing); ImGui::Checkbox("Monitor", &show_monitor_window);
     ImGui::SameLine(2*buttonSpacing); bool pushDark = ImGui::Checkbox("Dark mode", &dark_mode);
     ImGui::Checkbox("Image topic", &show_image_window);
-    ImGui::Checkbox("Actuator controls", &show_actuator_window);
-    ImGui::Checkbox("Status dashboard", &show_dashboard_window);
-    ImGui::Checkbox("Experiments", &show_dashboard_window2);
-    ImGui::Checkbox("Keyboard teleop", &show_teleop_window);
-    ImGui::Checkbox("Demo widgets", &show_demo_window);      // Edit bools storing our windows open/close state
+    ImGui::SameLine(buttonSpacing); ImGui::Checkbox("Actuator controls", &show_actuator_window);
+    ImGui::SameLine(2*buttonSpacing); ImGui::Checkbox("Status dashboard", &show_dashboard_window);
+    ImGui::Checkbox("Experiments", &show_experiment_dash_window);
+    ImGui::SameLine(buttonSpacing); ImGui::Checkbox("Keyboard teleop", &show_teleop_window);
+    ImGui::SameLine(2*buttonSpacing); ImGui::Checkbox("Demo widgets", &show_demo_window);      // Edit bools storing our windows open/close state
 
     if(pushDark){
       if(dark_mode){
@@ -166,27 +275,45 @@ void loop()
       }
     }
 
-    //ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", 1000.0f / ImGui::GetIO().Framerate, ImGui::GetIO().Framerate);
-    ImGui::ColorEdit3("Background", (float*)&clear_color); // Edit 3 floats representing a color
-    ImGui::ColorEdit3("Picky", col); // Edit 3 floats representing a color
-    ImGui::Text("Color H:%f S: %f V:%f", col[0], col[1], col[2]);
-    colorString = "HSV(";
-    colorString += std::to_string(col[0]);
-    colorString += ", ";
-    colorString += std::to_string(col[1]);
-    colorString += ", ";
-    colorString += std::to_string(col[2]);
-    colorString += ")";
-  //   static char * _chars = colorString.c_str();
-    char *_chars = strdup(colorString.c_str());
-    ImGui::InputText("Color", _chars, 64);
-    float colorH, colorS, colorV;
-    ImGui::InputFloat("R", &colorR, 0.0f, 255.0f);
-    ImGui::InputFloat("G", &colorG, 0.0f, 255.0f);
-    ImGui::InputFloat("B", &colorB, 0.0f, 255.0f);
-    ImGui::ColorConvertRGBtoHSV(colorR, colorG, colorB, colorH, colorS, colorV);
-    ImGui::Text("Color H:%f S: %f V:%f", colorH, colorS, colorV);
+    if(guiDebug)
+    {
+      ImGui::ColorEdit3("Background", (float*)&clear_color); // Edit 3 floats representing a color
+      ImGui::ColorEdit3("Picky", col); // Edit 3 floats representing a color
+      ImGui::Text("Color H:%f S: %f V:%f", col[0], col[1], col[2]);
+      colorString = "HSV(";
+      colorString += std::to_string(col[0]);
+      colorString += ", ";
+      colorString += std::to_string(col[1]);
+      colorString += ", ";
+      colorString += std::to_string(col[2]);
+      colorString += ")";
+
+      char *_chars = strdup(colorString.c_str());
+      ImGui::InputText("Color", _chars, 64);
+      float colorH, colorS, colorV;
+      // ImGui::InputFloat("R", &colorR, 0.0f, 255.0f);
+      // ImGui::InputFloat("G", &colorG, 0.0f, 255.0f);
+      // ImGui::InputFloat("B", &colorB, 0.0f, 255.0f);
+      // ImGui::ColorConvertRGBtoHSV(colorR, colorG, colorB, colorH, colorS, colorV);
+      // ImGui::Text("Color H:%f S: %f V:%f", colorH, colorS, colorV);
+    }
+
     ImGui::End();
+  }
+
+  if (show_guiStats_window) {
+    ImGui::SetNextWindowPos(ImVec2(800, 60), ImGuiCond_FirstUseEver);
+    ImGui::SetNextWindowSize(ImVec2(winWindth1, 400), ImGuiCond_FirstUseEver);
+    ImGui::SetNextWindowBgAlpha(0.7f);
+    // ImGui::Begin("Gui stats");
+    // ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", 1000.0f / ImGui::GetIO().Framerate, ImGui::GetIO().Framerate);
+    // ImGui::Text("Active windows %d", ImGui::GetIO().MetricsActiveWindows);
+    // // ImGui::Text("Visible windows %d", ImGui::GetIO().MetricsRenderWindows);
+    // ImGui::Text("Vertices %d", ImGui::GetIO().MetricsRenderVertices);
+    // ImGui::Text("Indices %d", ImGui::GetIO().MetricsRenderIndices);
+    // ImGui::Text("Mouse x:%.3f, y:%.3f", ImGui::GetIO().MousePos[0], ImGui::GetIO().MousePos[1]);
+    // ImGui::End();
+    ImGui::ShowMetricsWindow();
   }
 
   if (show_monlaunch_window) {
@@ -216,14 +343,19 @@ void loop()
       dashboard_widget->show_window(show_dashboard_window);
   }
 
-  if (show_dashboard_window2) {
+  if (show_experiment_dash_window) {
       ImGui::SetNextWindowPos(ImVec2(800, 120), ImGuiCond_FirstUseEver);
-      dashboard_widget2->show_window(show_dashboard_window2);
+      dashboard_widget2->show_window(show_experiment_dash_window);
   }
 
   if (show_teleop_window) {
       ImGui::SetNextWindowPos(ImVec2(1072, 500), ImGuiCond_FirstUseEver);
       teleop_widget->show_window(show_teleop_window);
+  }
+
+  if (show_monitor_window) {
+      ImGui::SetNextWindowPos(ImVec2(winSpacing, 280), ImGuiCond_FirstUseEver);
+      monitor_widget->show_window(show_monitor_window, guiDebug);
   }
 
   ImGui::Render();
@@ -245,6 +377,38 @@ void loop()
   glfwMakeContextCurrent(g_window);
 }
 
+int drawTabs(int _guiMode, const std::map<int, const char*> _modeMap){
+    // extern volatile bool guiDebug;
+    const int availWidth = ImGui::GetContentRegionAvailWidth();
+    const int numModes = _modeMap.size();
+    const ImGuiStyle& style = ImGui::GetStyle();
+    const int buttonWidth = (availWidth-3*style.FramePadding.x)/numModes - style.FramePadding.x;
+    if(guiDebug){
+    ImGui::Text("Available width: %d", availWidth);
+    ImGui::Text("Number of modes: %d", numModes);
+    ImGui::Text("Padding x: %f, y: %f", style.FramePadding.x, style.FramePadding.y);
+    ImGui::Text("Button width: %d", buttonWidth);
+    }
+    // GUI mode selection
+    for (auto gm:_modeMap)
+    {
+      if (gm.first != _modeMap.begin()->first) ImGui::SameLine();
+      ImGui::PushID(gm.first);
+      if(_guiMode == gm.first) {
+          ImGui::PushStyleColor(ImGuiCol_Button, ImGui::GetColorU32(ImGuiCol_FrameBgActive));
+      } else {
+          ImGui::PushStyleColor(ImGuiCol_Button, ImGui::GetColorU32(ImGuiCol_FrameBg));
+      }
+      ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImGui::GetColorU32(ImGuiCol_FrameBgHovered));
+      ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImGui::GetColorU32(ImGuiCol_FrameBgActive));
+      if(ImGui::Button(gm.second, ImVec2(buttonWidth,20))){
+          _guiMode = gm.first;
+      }
+      ImGui::PopStyleColor(3);
+      ImGui::PopID();
+    }
+    return _guiMode;
+}
 
 int init()
 {
@@ -336,6 +500,7 @@ extern "C" int main(int argc, char** argv)
   dashboard_widget = new roswasm_webgui::SamDashboardWidget(nh);
   dashboard_widget2 = new roswasm_webgui::SamDashboardWidget2(nh);
   teleop_widget = new roswasm_webgui::SamTeleopWidget(nh);
+  monitor_widget = new roswasm_webgui::SamMonitorWidget(nh);
 
   #ifdef __EMSCRIPTEN__
   emscripten_set_main_loop(loop, 20, 1);

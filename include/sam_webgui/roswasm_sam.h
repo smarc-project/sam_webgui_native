@@ -13,12 +13,19 @@
 #include <sam_msgs/BallastAngles.h>
 #include <sam_msgs/Leak.h>
 
+// #include <roswasm/roswasm.h>    // SamMonitorWidget
+// #include <rosapi/TopicsForType.h>   // SamMonitorWidget
+// #include <rosmon_msgs/State.h>  // SamMonitorWidget
+// #include <rosmon_msgs/StartStop.h>  // SamMonitorWidget
+
 namespace roswasm_webgui {
 
 bool draw_ballast_angles(sam_msgs::BallastAngles& msg, roswasm::Publisher* pub);
 bool draw_percent(sam_msgs::PercentStamped& msg, roswasm::Publisher* pub);
 bool draw_thruster_rpms(sam_msgs::ThrusterRPMs& msg, roswasm::Publisher* pub);
 bool draw_thruster_angles(sam_msgs::ThrusterAngles& msg, roswasm::Publisher* pub);
+extern bool guiDebug;
+extern int drawTabs(int _guiMode, const std::map<int, const char*> _modeMap);
 
 class SamActuatorWidget {
 private:
@@ -79,9 +86,29 @@ private:
     TopicBuffer<std_msgs::Float64>* yaw;
 public:
     bool is_emergency() { return was_leak; }
-    void show_window(bool& show_dashboard_window);
+    void show_window(bool& show_dashboard2_window);
     SamDashboardWidget2(roswasm::NodeHandle* nh);
 };
+
+// ---------------------------------------- SamMonitorWidget ----------------------------------------
+class SamMonitorWidget {
+private:
+    TopicBuffer<sam_msgs::Leak>* leak;
+    TopicBuffer<sensor_msgs::NavSatFix>* gps;
+    TopicBuffer<sensor_msgs::BatteryState>* battery;
+    TopicBuffer<nav_msgs::Odometry>* odom;
+    TopicBuffer<sam_msgs::PercentStamped>* vbs;
+    TopicBuffer<sam_msgs::PercentStamped>* lcg;
+    TopicBuffer<sam_msgs::ThrusterRPMs>* rpms;
+    TopicBuffer<std_msgs::Float64>* depth;
+    TopicBuffer<std_msgs::Float64>* pitch;
+    TopicBuffer<std_msgs::Float64>* roll;
+    TopicBuffer<std_msgs::Float64>* yaw;
+public:
+    void show_window(bool& show_monitor_window, bool guiDebug);
+    SamMonitorWidget(roswasm::NodeHandle* nh);
+};
+// -------------------------------------- SamMonitorWidget end --------------------------------------
 
 class SamTeleopWidget {
 private:

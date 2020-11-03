@@ -310,7 +310,10 @@ SamDashboardWidget2::SamDashboardWidget2(roswasm::NodeHandle* nh) : was_leak(fal
 void SamDashboardWidget2::show_window(bool& show_dashboard_window)
 {
     ImGui::SetNextWindowSize(ImVec2(500, 243), ImGuiCond_FirstUseEver);
-    ImGui::Begin("Status dashboard2", &show_dashboard_window);
+
+    ImGuiWindowFlags window_flags = 0;
+    window_flags |= ImGuiWindowFlags_MenuBar;
+    ImGui::Begin("Experiments dashboard", &show_dashboard_window, window_flags);
 
     // Menu
     if (ImGui::BeginMenuBar())
@@ -359,33 +362,209 @@ void SamDashboardWidget2::show_window(bool& show_dashboard_window)
         ImGui::PopStyleColor(3);
         ImGui::PopID();
     }
-    ImGui::Text("Choosen tab: %d", selectedTab);
-
-    if (ImGui::CollapsingHeader("Critical Info", ImGuiTreeNodeFlags_Framed | ImGuiTreeNodeFlags_DefaultOpen)) {
-        was_leak = was_leak || leak->get_msg().value;
-
-        float sz = ImGui::GetTextLineHeight();
-        std::string status_text;
-        ImColor status_color;
-        if (!was_leak) {
-            status_text = "No leaks!";
-            status_color = ImColor(0, 255, 0);
-        }
-        else {
-            status_text = "Leak!!!!!";
-            status_color = ImColor(255, 0, 0);
-        }
-        ImVec2 p = ImGui::GetCursorScreenPos();
-        ImGui::GetWindowDrawList()->AddRectFilled(p, ImVec2(p.x+sz, p.y+sz), status_color);
-        ImGui::Dummy(ImVec2(sz, sz));
-        ImGui::SameLine();
-        ImGui::Text("%s", status_text.c_str());
-
-        ImGui::SameLine(150);
-        ImGui::Text("Battery: %.0f%%", 100.*battery->get_msg().percentage);
+    if(guiDebug)
+    {
+        ImGui::Text("Choosen tab: %d", selectedTab);
     }
 
     if(selectedTab == 1) {
+        if (ImGui::CollapsingHeader("Critical Info", ImGuiTreeNodeFlags_Framed | ImGuiTreeNodeFlags_DefaultOpen)) {
+            was_leak = was_leak || leak->get_msg().value;
+
+            float sz = ImGui::GetTextLineHeight();
+            std::string status_text;
+            ImColor status_color;
+            if (!was_leak) {
+                status_text = "No leaks!";
+                status_color = ImColor(0, 255, 0);
+            }
+            else {
+                status_text = "Leak!!!!!";
+                status_color = ImColor(255, 0, 0);
+            }
+            ImVec2 p = ImGui::GetCursorScreenPos();
+            ImGui::GetWindowDrawList()->AddRectFilled(p, ImVec2(p.x+sz, p.y+sz), status_color);
+            ImGui::Dummy(ImVec2(sz, sz));
+            ImGui::SameLine();
+            ImGui::Text("%s", status_text.c_str());
+
+            ImGui::SameLine(150);
+            ImGui::Text("Battery: %.0f%%", 100.*battery->get_msg().percentage);
+        }
+
+        if (ImGui::CollapsingHeader("GPS and depth", ImGuiTreeNodeFlags_Framed | ImGuiTreeNodeFlags_DefaultOpen)) {
+            ImGui::Text("Lat: %.5f", gps->get_msg().latitude);
+            ImGui::SameLine(150);
+            ImGui::Text("Lon: %.5f", gps->get_msg().longitude);
+            ImGui::SameLine(300);
+            ImGui::Text("Depth: %.2fm", depth->get_msg().data);
+        }
+
+        if (ImGui::CollapsingHeader("DR translation", ImGuiTreeNodeFlags_Framed | ImGuiTreeNodeFlags_DefaultOpen)) {
+            ImGui::Text("X: %.2fm", odom->get_msg().pose.pose.position.x);
+            ImGui::SameLine(150);
+            ImGui::Text("Y: %.2fm", odom->get_msg().pose.pose.position.y);
+            ImGui::SameLine(300);
+            ImGui::Text("Z: %.2fm", odom->get_msg().pose.pose.position.z);
+        }
+
+        if (ImGui::CollapsingHeader("DR rotation", ImGuiTreeNodeFlags_Framed | ImGuiTreeNodeFlags_DefaultOpen)) {
+            ImGui::Text("Roll: %.2fdeg", 180./M_PI*roll->get_msg().data);
+            ImGui::SameLine(150);
+            ImGui::Text("Pitch: %.2fdeg", 180./M_PI*pitch->get_msg().data);
+            ImGui::SameLine(300);
+            ImGui::Text("Yaw: %.2fdeg", 180./M_PI*yaw->get_msg().data);
+        }
+
+        if (ImGui::CollapsingHeader("Actuator feedback", ImGuiTreeNodeFlags_Framed | ImGuiTreeNodeFlags_DefaultOpen)) {
+            ImGui::Text("VBS pos: %.2f%%", vbs->get_msg().value);
+            ImGui::SameLine(150);
+            ImGui::Text("LCG pos: %.2f%%", lcg->get_msg().value);
+            ImGui::SameLine(300);
+            ImGui::Text("RPMs: %d, %d rpm", rpms->get_msg().thruster_1_rpm, rpms->get_msg().thruster_2_rpm);
+        }
+    }
+
+    ImGui::End();
+}
+
+// --------------------------- SamMonitorWidget ---------------------------
+SamMonitorWidget::SamMonitorWidget(roswasm::NodeHandle* nh)
+{
+    leak = new TopicBuffer<sam_msgs::Leak>(nh, "core/leak_fb");
+    gps = new TopicBuffer<sensor_msgs::NavSatFix>(nh, "core/gps");
+    battery = new TopicBuffer<sensor_msgs::BatteryState>(nh, "core/battery_fb");
+    odom = new TopicBuffer<nav_msgs::Odometry>(nh, "dr/odom", 1000);
+    vbs = new TopicBuffer<sam_msgs::PercentStamped>(nh, "core/vbs_fb", 1000);
+    lcg = new TopicBuffer<sam_msgs::PercentStamped>(nh, "core/lcg_fb", 1000);
+    rpms = new TopicBuffer<sam_msgs::ThrusterRPMs>(nh, "core/rpm_fb", 1000);
+    depth = new TopicBuffer<std_msgs::Float64>(nh, "ctrl/depth_feedback", 1000);
+    pitch = new TopicBuffer<std_msgs::Float64>(nh, "ctrl/pitch_feedback", 1000);
+    roll = new TopicBuffer<std_msgs::Float64>(nh, "ctrl/roll_feedback", 1000);
+    yaw = new TopicBuffer<std_msgs::Float64>(nh, "ctrl/yaw_feedback", 1000);
+}
+
+void SamMonitorWidget::show_window(bool& show_dashboard_window, bool guiDebug)
+{
+    ImGui::SetNextWindowSize(ImVec2(1000, 450), ImGuiCond_FirstUseEver);
+    ImGui::Begin("Monitoring dashboard", &show_dashboard_window);
+    
+    // static int selectedTab = 100;
+    // const std::map<int, const char*> tabs = {{0, "Setup"}, {1, "Monitor"}, {250, "Cameras"}, {300, "Control"}, {400, "Service"}, {999, "Develop"}};
+    // selectedTab = drawTabs(selectedTab, tabs);
+
+    static int selectedTab = 0;
+    const std::vector<const char*> tabNames{"Hardware", "tab2", "tab3", "tab4"};
+    for (int i = 0; i < 4; i++)
+    {
+        if (i > 0) ImGui::SameLine();
+        ImGui::PushID(i);
+        if(selectedTab == i) {
+            ImGui::PushStyleColor(ImGuiCol_Button, ImGui::GetColorU32(ImGuiCol_FrameBgActive));
+        } else {
+            ImGui::PushStyleColor(ImGuiCol_Button, ImGui::GetColorU32(ImGuiCol_FrameBg));
+        }
+        ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImGui::GetColorU32(ImGuiCol_FrameBgHovered));
+        ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImGui::GetColorU32(ImGuiCol_FrameBgActive));
+        if(ImGui::Button(tabNames[i], ImVec2(80,20))){
+            selectedTab = i;
+        }
+        ImGui::PopStyleColor(3);
+        ImGui::PopID();
+    }
+    if(guiDebug)
+    {
+        ImGui::Text("Choosen tab: %d", selectedTab);
+    }
+
+    const std::vector<const char*> names{"Setup", "Monitor", "Control", "Service", "Experiments"};
+    if(selectedTab == 0) {
+        {
+            // ImGui::BeginChild("ChildL", ImVec2(ImGui::GetWindowContentRegionWidth() * 0.5f, 300), false, ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse);
+            ImGui::BeginChild("ChildL", ImVec2(ImGui::GetWindowContentRegionWidth() * 0.5f, 300), false, 0);
+            ImGui::Text("With border:");
+            ImGui::Columns(4, "mycolumns"); // 4-ways, with border
+            ImGui::SetColumnWidth(0,50);
+            ImGui::Separator();
+            ImGui::Text("ID"); ImGui::NextColumn();
+            ImGui::Text("Name"); ImGui::NextColumn();
+            ImGui::Text("Path"); ImGui::NextColumn();
+            ImGui::Text("Hovered"); ImGui::NextColumn();
+            ImGui::Separator();
+            // const char* names[3] = { "One", "Two", "Three" };
+            const char* paths[3] = { "/path/one", "/path/two", "/path/three" };
+            static int selected = -1;
+            for (int i = 0; i < 3; i++)
+            {
+                char label[32];
+                sprintf(label, "%04d", i);
+                if (ImGui::Selectable(label, selected == i, ImGuiSelectableFlags_SpanAllColumns))
+                    selected = i;
+                bool hovered = ImGui::IsItemHovered();
+                ImGui::NextColumn();
+                ImGui::TextColored(ImGui::GetStyleColorVec4(ImGuiCol_Text), names[i]); ImGui::NextColumn();
+                ImGui::TextColored(ImGui::GetStyleColorVec4(ImGuiCol_Text), names[i]); ImGui::NextColumn();
+                ImGui::Text("%d", hovered); ImGui::NextColumn();
+            }
+            ImGui::Columns(1);
+            ImGui::EndChild();
+        }
+        ImGui::SameLine();
+        {
+            // ImGui::BeginChild("ChildR", ImVec2(0, 260), false, ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse);
+            ImGui::BeginChild("ChildR", ImVec2(0, 260), false, 0);
+            ImGui::Text("With border:");
+            ImGui::Columns(4, "mycolumns"); // 4-ways, with border
+            ImGui::SetColumnWidth(0,50);
+            ImGui::Separator();
+            ImGui::Text("ID"); ImGui::NextColumn();
+            ImGui::Text("Name"); ImGui::NextColumn();
+            ImGui::Text("Path"); ImGui::NextColumn();
+            ImGui::Text("Hovered"); ImGui::NextColumn();
+            ImGui::Separator();
+            // const char* names[3] = { "One", "Two", "Three" };
+            const char* paths[3] = { "/path/one", "/path/two", "/path/three" };
+            static int selected = -1;
+            for (int i = 0; i < 3; i++)
+            {
+                char label[32];
+                sprintf(label, "%04d", i);
+                if (ImGui::Selectable(label, selected == i, ImGuiSelectableFlags_SpanAllColumns))
+                    selected = i;
+                bool hovered = ImGui::IsItemHovered();
+                ImGui::NextColumn();
+                ImGui::Text(names[i]); ImGui::NextColumn();
+                ImGui::Text(names[i]); ImGui::NextColumn();
+                ImGui::Text("%d", hovered); ImGui::NextColumn();
+            }
+            ImGui::Columns(1);
+            ImGui::EndChild();
+        }
+    } else if(selectedTab == 1) {
+        if (ImGui::CollapsingHeader("Critical Info", ImGuiTreeNodeFlags_Framed | ImGuiTreeNodeFlags_DefaultOpen)) {
+            // was_leak = was_leak || leak->get_msg().value;
+
+            // float sz = ImGui::GetTextLineHeight();
+            // std::string status_text;
+            // ImColor status_color;
+            // if (!was_leak) {
+            //     status_text = "No leaks!";
+            //     status_color = ImColor(0, 255, 0);
+            // }
+            // else {
+            //     status_text = "Leak!!!!!";
+            //     status_color = ImColor(255, 0, 0);
+            // }
+            // ImVec2 p = ImGui::GetCursorScreenPos();
+            // ImGui::GetWindowDrawList()->AddRectFilled(p, ImVec2(p.x+sz, p.y+sz), status_color);
+            // ImGui::Dummy(ImVec2(sz, sz));
+            // ImGui::SameLine();
+            // ImGui::Text("%s", status_text.c_str());
+
+            ImGui::SameLine(150);
+            ImGui::Text("Battery: %.0f%%", 100.*battery->get_msg().percentage);
+        }
+
         if (ImGui::CollapsingHeader("GPS and depth", ImGuiTreeNodeFlags_Framed | ImGuiTreeNodeFlags_DefaultOpen)) {
             ImGui::Text("Lat: %.5f", gps->get_msg().latitude);
             ImGui::SameLine(150);
@@ -558,6 +737,5 @@ void SamTeleopWidget::show_window(bool& show_teleop_window)
 
     //ImGui::Text("Keys down:");      for (int i = 0; i < IM_ARRAYSIZE(io.KeysDown); i++) if (io.KeysDownDuration[i] >= 0.0f)     { ImGui::SameLine(); ImGui::Text("%d (%.02f secs)", i, io.KeysDownDuration[i]); }
 }
-
 
 } // namespace roswasm_webgui
