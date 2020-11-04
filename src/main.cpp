@@ -37,6 +37,7 @@ GLFWwindow* g_window;
 //ImVec4 clear_color = ImVec4(0.45f, 0.55f, 0.60f, 1.00f);
 ImVec4 clear_color = ImVec4(0.25f, 0.45f, 0.55f, 1.00f);
 ImVec4 emergency_color = ImVec4(1.0f, 0.0f, 0.0f, 1.00f);
+ImVec4 warning_color = ImVec4(0.87f, 0.57f, 0.0f, 1.00f);
 ImVec4 good_color = ImVec4(0.0f, 0.71f, 0.06f, 1.00f);
 std::string colorString = "";
 float colorR, colorG, colorB;
@@ -63,6 +64,7 @@ bool show_monitor_window = false;
 bool show_guiStats_window = false;
 bool show_roslog_window = true;
 
+// bool dark_mode = true;
 bool dark_mode = true;
 bool emergency = false;
 bool guiDebug = false;
@@ -110,22 +112,38 @@ void loop()
     ImGui::SetNextWindowSize(ImVec2(winWindth1, 200), ImGuiCond_FirstUseEver);
     ImGui::Begin("Roswasm webgui"); //, &show_another_window);
 
-    float sz = ImGui::GetTextLineHeight();
+    
+    // ImGui::Button("", ImVec2(13, 13));
+    // ImGui::SameLine();
+    // float sz = ImGui::GetTextLineHeight();
     std::string status_text;
-    ImColor status_color;
+    // ImColor status_color;
+    ImVec4 status_color4;
     if (nh->ok()) {
-        status_text = "Connected to " + nh->get_websocket_url();
-        status_color = ImColor(0, 255, 0);
+        status_text = "Connected! " + nh->get_websocket_url();
+        status_color4 = ImColor(0, 255, 0);
     }
     else {
-        status_text = "Disconnected from " + nh->get_websocket_url();
-        status_color = ImColor(255, 0, 0);
+        status_text = "Disconnected! " + nh->get_websocket_url();
+        status_color4 = ImColor(255, 0, 0);
     }
-    ImVec2 p = ImGui::GetCursorScreenPos();
-    ImGui::GetWindowDrawList()->AddRectFilled(p, ImVec2(p.x+sz, p.y+sz), status_color);
-    ImGui::Dummy(ImVec2(sz, sz));
+    // ImVec2 p = ImGui::GetCursorScreenPos();
+    // ImGui::GetWindowDrawList()->AddRectFilled(p, ImVec2(p.x+sz, p.y+sz), status_color);
+    // ImGui::Dummy(ImVec2(sz, sz));
+    // ImVec4 status_color4 = ImColor(0, 255, 0);
+    ImGui::AlignTextToFramePadding();
+    ImGui::PushID(23);
+    ImGui::PushStyleColor(ImGuiCol_Button, status_color4);
+    ImGui::PushStyleColor(ImGuiCol_ButtonHovered, status_color4);
+    ImGui::PushStyleColor(ImGuiCol_ButtonActive, status_color4);
+    ImGui::Button("", ImVec2(18,18));
+    ImGui::PopStyleColor(3);
+    ImGui::PopID();
     ImGui::SameLine();
+    ImGui::AlignTextToFramePadding();
     ImGui::Text("%s", status_text.c_str());
+    // ImGui::Text("Connected");
+    ImGui::AlignTextToFramePadding();
 
     monlaunch_widget->getStates(nodeStates);
 
@@ -145,13 +163,17 @@ void loop()
         }
       }
     }
+    const int _buttonWidth = 150;
+    const int availWidth = ImGui::GetContentRegionAvailWidth();
+    ImGui::SameLine(availWidth-_buttonWidth+8);
+    ImGui::PushID(1);
+    char label[32];
     if (nodesTotal){
-      const int _buttonWidth = 150;
-      const int availWidth = ImGui::GetContentRegionAvailWidth();
-      ImGui::SameLine();
+      // const int _buttonWidth = 150;
+      // const int availWidth = ImGui::GetContentRegionAvailWidth();
+      // ImGui::SameLine();
       // ImGui::SameLine(availWidth-_buttonWidth+8);
-      ImGui::PushID(1);
-      char label[32];
+      // ImGui::PushID(1);
       if(nodesCrashed)
       {
         ImGui::PushStyleColor(ImGuiCol_Button, emergency_color);
@@ -162,40 +184,55 @@ void loop()
           sprintf(label, "Nodes crashed: %d", nodesCrashed);
         }
         else {
-          sprintf(label, "Node crashed");
+          sprintf(label, "Node crashed!");
         }
       }
-      else
+      else if(nodesRunning)
       {
         ImGui::PushStyleColor(ImGuiCol_Button, good_color);
         ImGui::PushStyleColor(ImGuiCol_ButtonHovered, good_color);
         ImGui::PushStyleColor(ImGuiCol_ButtonActive, good_color);
         sprintf(label, "Nodes running: %d/%d", nodesRunning, nodesTotal);
       }
-      ImGui::AlignTextToFramePadding();
-      // if(ImGui::Button(label, ImVec2(_buttonWidth,15))){
-      if(ImGui::SmallButton(label)){
-        show_monlaunch_window = true;
+      else
+      {
+        ImGui::PushStyleColor(ImGuiCol_Button, warning_color);
+        ImGui::PushStyleColor(ImGuiCol_ButtonHovered, warning_color);
+        ImGui::PushStyleColor(ImGuiCol_ButtonActive, warning_color);
+        sprintf(label, "No nodes running");
       }
-      ImGui::PopStyleColor(3);
-      ImGui::PopID();
     }
+    else
+    {
+      ImGui::PushStyleColor(ImGuiCol_Button, emergency_color);
+      ImGui::PushStyleColor(ImGuiCol_ButtonHovered, emergency_color);
+      ImGui::PushStyleColor(ImGuiCol_ButtonActive, emergency_color);
+      sprintf(label, "No nodes detected!");
+    }
+    if(ImGui::Button(label, ImVec2(_buttonWidth,18))){
+      // if(ImGui::SmallButton(label)){
+      show_monlaunch_window = true;
+    }
+    ImGui::PopStyleColor(3);
+    ImGui::PopID();
 
-    ImGui::Button("5x5", ImVec2(5, 5));
-    ImGui::SameLine();
-    ImGui::Button("8x8", ImVec2(8, 8));
-    ImGui::SameLine();
-    ImGui::Button("10x10", ImVec2(10, 10));
-    ImGui::SameLine();
-    ImGui::Button("11x11", ImVec2(11, 11));
-    ImGui::SameLine();
-    ImGui::Button("12x12", ImVec2(12, 5));
-    ImGui::SameLine();
-    ImGui::Button("13x13", ImVec2(13, 13));
-    ImGui::SameLine();
-    ImGui::Button("Button()");
-    ImGui::SameLine();
-    ImGui::SmallButton("SmallButton()");
+    // ImGui::Button("5x5", ImVec2(5, 5));
+    // ImGui::SameLine();
+    // ImGui::Button("8x8", ImVec2(8, 8));
+    // ImGui::SameLine();
+    // ImGui::Button("10x10", ImVec2(10, 10));
+    // ImGui::SameLine();
+    // ImGui::Button("11x11", ImVec2(11, 11));
+    // ImGui::SameLine();
+    // ImGui::Button("12x12", ImVec2(12, 5));
+    // ImGui::SameLine();
+    // ImGui::Button("13x13", ImVec2(13, 13));
+    // ImGui::SameLine();
+    // ImGui::Button("Button()");
+    // ImGui::SameLine();
+    // ImGui::SmallButton("SmallButton()");
+
+
     // if (nodeCrashed){
     //   const int _buttonWidth = 120;
     //   const int availWidth = ImGui::GetContentRegionAvailWidth();
