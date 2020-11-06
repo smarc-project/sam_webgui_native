@@ -432,8 +432,13 @@ void SamDashboardWidget2::show_window(bool& show_dashboard_window)
 SamMonitorWidget::SamMonitorWidget(roswasm::NodeHandle* nh)
 {
     battery = new TopicBuffer<sensor_msgs::BatteryState>(nh, "core/battery_fb");
-    circuit = new TopicBuffer<uavcan_ros_bridge::CircuitStatus>(nh, "core/circuit_status_fb");
-    charge = new TopicBuffer<sam_msgs::ConsumedChargeFeedback>(nh, "core/consumed_charge_fb");
+    // circuit = new TopicBuffer<uavcan_ros_bridge::CircuitStatus>(nh, "core/circuit_status_fb");
+    circuit = new TopicBuffer<sam_msgs::CircuitStatusStampedArray>(nh, "core/circuit_status_array_fb");
+    // subCharge = nh->subscribe<sam_msgs::ConsumedChargeArray>("core/consumed_charge_array_fb", std::bind(&TopicBuffer::callback, this, std::placeholders::_1), throttle_rate);
+    subCharge = nh->subscribe<sam_msgs::ConsumedChargeArray>("core/consumed_charge_array_fb", std::bind(&SamMonitorWidget::callbackCharge, this, std::placeholders::_1), 10);
+    // subCharge = nh->subscribe<sam_msgs::ConsumedChargeArray>("core/consumed_charge_array_fb", &SamMonitorWidget::callbackCharge, 10);
+    // charge = new TopicBuffer<sam_msgs::ConsumedChargeFeedback>(nh, "core/consumed_charge_fb");
+    charge = new TopicBuffer<sam_msgs::ConsumedChargeArray>(nh, "core/consumed_charge_array_fb");
     uavcan = new TopicBuffer<uavcan_ros_bridge::UavcanNodeStatusNamedArray>(nh, "core/uavcan_fb");
     odom = new TopicBuffer<nav_msgs::Odometry>(nh, "dr/odom", 1000);
     vbs = new TopicBuffer<sam_msgs::PercentStamped>(nh, "core/vbs_fb", 1000);
@@ -449,13 +454,9 @@ void SamMonitorWidget::show_window(bool& show_dashboard_window, bool guiDebug)
 {
     ImGui::SetNextWindowSize(ImVec2(1000, 450), ImGuiCond_FirstUseEver);
     ImGui::Begin("Monitoring dashboard", &show_dashboard_window);
-    
-    // static int selectedTab = 100;
-    // const std::map<int, const char*> tabs = {{0, "Setup"}, {1, "Monitor"}, {250, "Cameras"}, {300, "Control"}, {400, "Service"}, {999, "Develop"}};
-    // selectedTab = drawTabs(selectedTab, tabs);
 
     static int selectedTab = 0;
-    const std::vector<const char*> tabNames{"Hardware", "UAVCAN", "BT", "Comms", "Payloads"};
+    const std::vector<const char*> tabNames{"Electrical", "Driveline", "UAVCAN", "BT", "Comms", "Payloads"};
     for (int i = 0; i < 4; i++)
     {
         if (i > 0) ImGui::SameLine();
@@ -467,7 +468,7 @@ void SamMonitorWidget::show_window(bool& show_dashboard_window, bool guiDebug)
         }
         ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImGui::GetColorU32(ImGuiCol_FrameBgHovered));
         ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImGui::GetColorU32(ImGuiCol_FrameBgActive));
-        if(ImGui::Button(tabNames[i], ImVec2(80,20))){
+        if(ImGui::Button(tabNames[i], ImVec2(85,20))){
             selectedTab = i;
         }
         ImGui::PopStyleColor(3);
@@ -481,7 +482,7 @@ void SamMonitorWidget::show_window(bool& show_dashboard_window, bool guiDebug)
     const std::vector<const char*> names{"Setup", "Monitor", "Control", "Service", "Experiments"};
     if(selectedTab == 0) {
         {
-            ImGui::BeginChild("Battery", ImVec2(615, 80), false, 0);
+            ImGui::BeginChild("Battery", ImVec2(475, 80), false, 0);
             
             ImGui::Text("Batteries");
             const std::vector<std::pair<int, const char*>> batteryColumns{
@@ -491,8 +492,8 @@ void SamMonitorWidget::show_window(bool& show_dashboard_window, bool guiDebug)
                 {90,"Current [A]"},
                 {90,"Charge [Ah]"},
                 {105,"Capacity [Ah]"},
-                {70,"Status"},
-                {70,"Health"},
+                // {70,"Status"},
+                // {70,"Health"},
             };
             ImGui::Columns(batteryColumns.size(), "batteryTable");
             ImGui::Separator();
@@ -509,20 +510,40 @@ void SamMonitorWidget::show_window(bool& show_dashboard_window, bool guiDebug)
             ImGui::Text("%.2f", battery->get_msg().current); ImGui::NextColumn();
             ImGui::Text("%.2f", battery->get_msg().charge); ImGui::NextColumn();
             ImGui::Text("%.2f", battery->get_msg().capacity); ImGui::NextColumn();
-            ImGui::Text("UNKNOWN"); ImGui::NextColumn();
-            ImGui::Text("UNKNOWN"); ImGui::NextColumn();
+            // ImGui::Text("UNKNOWN"); ImGui::NextColumn();
+            // ImGui::Text("UNKNOWN"); ImGui::NextColumn();
             ImGui::EndChild();
+        }
+        ImGui::Columns(2, "rail_split", false);
+        ImGui::SetColumnWidth(0, ImGui::GetWindowContentRegionWidth() * 0.6f);
+        {
+            ImGui::BeginChild("RailsL", ImVec2(0, 200), false, 0);
 
-            // ImGui::BeginChild("ChildL", ImVec2(ImGui::GetWindowContentRegionWidth() * 0.5f, 300), false, ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse);
-            ImGui::BeginChild("ChildL", ImVec2(ImGui::GetWindowContentRegionWidth() * 0.5f, 300), false, 0);
+            std::unordered_map<int, const char*> circuitNames = {
+                {1,"Main"},
+                {2,"ESC1"},
+                {3,"ESC2"},
+                {4,"ESC3"},
+                {5,"20v"},
+                {6,"12v"},
+                {7,"7v"},
+                {8,"5v"},
+                {9,"3v3"}
+            };
 
-            ImGui::Text("Batteries");
+            // std::unordered_map<int, float> circuitCharges;
+            // for
+
+            int sizzy = circuit->get_msg().array.size();
+            ImGui::Text("Power rails");
             const std::vector<std::pair<int, const char*>> circuitColumns{
                 {30,"ID"},
-                {70,"Rail [V]"},
+                {70,"Rail"},
                 {90,"Voltage [V]"},
                 {90,"Current [A]"},
+                {75,"Power [W]"},
                 {70,"Status"},
+                {100,"Consumed [Ah]"},
             };
             ImGui::Columns(circuitColumns.size(), "circuitTable");
             ImGui::Separator();
@@ -532,11 +553,90 @@ void SamMonitorWidget::show_window(bool& show_dashboard_window, bool guiDebug)
                 ImGui::SetColumnWidth(i,circuitColumns[i].first); ImGui::Text("%s", circuitColumns[i].second); ImGui::NextColumn();
             }
             ImGui::Separator();
-            ImGui::Text("%d", circuit->get_msg().circuit_id); ImGui::NextColumn();
-            ImGui::Text("name"); ImGui::NextColumn();
-            ImGui::Text("%.2f", circuit->get_msg().voltage); ImGui::NextColumn();
-            ImGui::Text("%.2f", circuit->get_msg().current); ImGui::NextColumn();
-            ImGui::Text("%d", circuit->get_msg().error_flags); ImGui::NextColumn();
+            // ImGui::Text("%d", circuit->get_msg().array[0].circuit.circuit_id); ImGui::NextColumn();
+            // ImGui::Text("%s", circuitNames[1]); ImGui::NextColumn();
+            // // ImGui::Text("name"); ImGui::NextColumn();
+            // ImGui::Text("%.2f", circuit->get_msg().array[0].circuit.voltage); ImGui::NextColumn();
+            // ImGui::Text("%.3f", circuit->get_msg().array[0].circuit.current); ImGui::NextColumn();
+            // ImGui::Text("%.2f", circuit->get_msg().array[0].circuit.voltage*circuit->get_msg().array[0].circuit.current); ImGui::NextColumn();
+            // ImGui::Text("%d", circuit->get_msg().array[0].circuit.error_flags); ImGui::NextColumn();
+            // ImGui::Text("10000"); ImGui::NextColumn();
+
+            static int selectedRail = -1;
+            float vSum = 0, cSum = 0, pSum = 0;
+            for (int i = 0; i < circuit->get_msg().array.size(); i++)
+            {
+                const int id = circuit->get_msg().array[i].circuit.circuit_id;
+                const float voltage = circuit->get_msg().array[i].circuit.voltage;
+                const float current = circuit->get_msg().array[i].circuit.current;
+                const float power = voltage*current;
+                vSum += voltage;
+                cSum += current;
+                pSum += power;
+                // ImGui::Text("%d", id); ImGui::NextColumn();
+                char label[32];
+                sprintf(label, "%d", id);
+                if (ImGui::Selectable(label, selectedRail == id, ImGuiSelectableFlags_SpanAllColumns))
+                {
+                    selectedRail = id;
+                }
+                ImGui::NextColumn();
+                if (circuitNames.find(id) != circuitNames.end())
+                {
+                    ImGui::Text("%s", circuitNames[id]);
+                }
+                else
+                {
+                    ImGui::Text("-");
+                }
+                ImGui::NextColumn();
+                // ImGui::Text("name"); ImGui::NextColumn();
+                ImGui::Text("%.2f", voltage); ImGui::NextColumn();
+                ImGui::Text("%.3f", current); ImGui::NextColumn();
+                ImGui::Text("%.2f", power); ImGui::NextColumn();
+                ImGui::Text("%d", circuit->get_msg().array[i].circuit.error_flags); ImGui::NextColumn();
+                // ImGui::Text("10000"); ImGui::NextColumn();
+                if (circuitCharges.find(id) != circuitCharges.end())
+                {
+                    ImGui::Text("%.4f", circuitCharges[id]);
+                }
+                else
+                {
+                    ImGui::Text("-");
+                }
+                ImGui::NextColumn();
+                // const std::pair<ImVec4, const char*> _health = healthToColoredString(uavcan->get_msg().array[i].ns.health);
+                // const std::pair<ImVec4, const char*> _mode = modeToColoredString(uavcan->get_msg().array[i].ns.mode);
+                // char label[32];
+                // sprintf(label, "%d", uavcan->get_msg().array[i].id);
+                // if (ImGui::Selectable(label, selectedRail == i, ImGuiSelectableFlags_SpanAllColumns))
+                // {
+                //     selectedRail = i;
+                // }
+                // ImGui::NextColumn();
+                // ImGui::Text("%s", uavcan->get_msg().array[i].name.c_str()); ImGui::NextColumn();
+                // ImGui::Text("%d", uavcan->get_msg().array[i].ns.uptime_sec); ImGui::NextColumn();
+                // ImGui::TextColored(_health.first, "%s", _health.second); ImGui::NextColumn();
+                // ImGui::TextColored(_mode.first, "%s", _mode.second); ImGui::NextColumn();
+                // ImGui::Text("0x%04X", uavcan->get_msg().array[i].ns.vendor_specific_status_code); ImGui::NextColumn();
+            }
+            ImGui::Columns(1);
+            // ImGui::Separator();
+            
+            // ImGui::Columns(1);
+            // ImGui::Columns(circuitColumns.size()-1, "circuitTable2");
+            // ImGui::SetColumnWidth(0, circuitColumns[0].first + circuitColumns[1].first);
+            // for(int i = 2; i<circuitColumns.size(); i++)
+            // {
+            //     ImGui::SetColumnWidth(i,circuitColumns[i].first);
+            // }
+            // if (ImGui::Selectable("Total", selectedRail == 0, ImGuiSelectableFlags_SpanAllColumns))
+            // {
+            //     selectedRail = 0;
+            // }
+            // ImGui::NextColumn(); ImGui::NextColumn(); ImGui::NextColumn();
+            // ImGui::Text("%.2f", pSum);
+            
             // ImGui::Text("With border:");
             // ImGui::Columns(4, "mycolumns"); // 4-ways, with border
             // ImGui::SetColumnWidth(0,50);
@@ -548,7 +648,7 @@ void SamMonitorWidget::show_window(bool& show_dashboard_window, bool guiDebug)
             // ImGui::Separator();
             // const char* names[3] = { "One", "Two", "Three" };
             // const char* paths[3] = { "/path/one", "/path/two", "/path/three" };
-            static int selected = -1;
+            // static int selected = -1;
             // for (int i = 0; i < 2; i++)
             // {
             //     char label[32];
@@ -564,10 +664,9 @@ void SamMonitorWidget::show_window(bool& show_dashboard_window, bool guiDebug)
             ImGui::Columns(1);
             ImGui::EndChild();
         }
-        ImGui::SameLine();
         {
             // ImGui::BeginChild("ChildR", ImVec2(0, 260), false, ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse);
-            ImGui::BeginChild("ChildR", ImVec2(0, 260), false, 0);
+            ImGui::BeginChild("ChildR", ImVec2(ImGui::GetWindowContentRegionWidth() * 0.5f, 260), false, 0);
             ImGui::Text("Temperatures");
             ImGui::Columns(4, "mycolumns"); // 4-ways, with border
             ImGui::SetColumnWidth(0,50);
@@ -595,7 +694,47 @@ void SamMonitorWidget::show_window(bool& show_dashboard_window, bool guiDebug)
             ImGui::Columns(1);
             ImGui::EndChild();
         }
-    } else if(selectedTab == 1) {
+        ImGui::NextColumn();
+        // ImGui::SameLine();
+        {
+            ImGui::BeginChild("RailsR", ImGui::GetContentRegionAvail(), false, 0);
+            ImGui::Text("Power details");
+            ImGui::BeginChild("RailsR2", ImVec2(0, 0), true, 0);
+            ImGui::EndChild();
+            ImGui::EndChild();
+        }
+        // ImGui::SameLine();
+        // {
+        //     // ImGui::BeginChild("ChildR", ImVec2(0, 260), false, ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse);
+        //     ImGui::BeginChild("ChildR", ImVec2(ImGui::GetWindowContentRegionWidth() * 0.5f, 260), false, 0);
+        //     ImGui::Text("Temperatures");
+        //     ImGui::Columns(4, "mycolumns"); // 4-ways, with border
+        //     ImGui::SetColumnWidth(0,50);
+        //     ImGui::Separator();
+        //     ImGui::Text("ID"); ImGui::NextColumn();
+        //     ImGui::Text("Name"); ImGui::NextColumn();
+        //     ImGui::Text("Path"); ImGui::NextColumn();
+        //     ImGui::Text("Hovered"); ImGui::NextColumn();
+        //     ImGui::Separator();
+        //     // const char* names[3] = { "One", "Two", "Three" };
+        //     const char* paths[3] = { "/path/one", "/path/two", "/path/three" };
+        //     static int selected = -1;
+        //     for (int i = 0; i < 3; i++)
+        //     {
+        //         char label[32];
+        //         sprintf(label, "%04d", i);
+        //         if (ImGui::Selectable(label, selected == i, ImGuiSelectableFlags_SpanAllColumns))
+        //             selected = i;
+        //         bool hovered = ImGui::IsItemHovered();
+        //         ImGui::NextColumn();
+        //         ImGui::Text("%s", names[i]); ImGui::NextColumn();
+        //         ImGui::Text("%s", names[i]); ImGui::NextColumn();
+        //         ImGui::Text("%d", hovered); ImGui::NextColumn();
+        //     }
+        //     ImGui::Columns(1);
+        //     ImGui::EndChild();
+        // }
+    } else if(selectedTab == 2) {
         {
             std::pair<ImVec4, const char*> healthToColoredString(const std::uint8_t health);
             std::pair<ImVec4, const char*> modeToColoredString(const std::uint8_t mode);
@@ -736,7 +875,7 @@ void SamMonitorWidget::show_window(bool& show_dashboard_window, bool guiDebug)
         //     ImGui::Columns(1);
         //     ImGui::EndChild();
         // }
-    } else if(selectedTab == 2) {
+    } else if(selectedTab == 1) {
         // if (ImGui::CollapsingHeader("GPS and depth", ImGuiTreeNodeFlags_Framed | ImGuiTreeNodeFlags_DefaultOpen)) {
         //     ImGui::Text("Lat: %.5f", gps->get_msg().latitude);
         //     ImGui::SameLine(150);
@@ -771,6 +910,13 @@ void SamMonitorWidget::show_window(bool& show_dashboard_window, bool guiDebug)
     }
 
     ImGui::End();
+}
+void SamMonitorWidget::callbackCharge(const sam_msgs::ConsumedChargeArray& msg)
+{
+    for (int i = 0; i < msg.array.size(); i++)
+    {
+        circuitCharges[msg.array[i].circuit_id] = msg.array[i].charge/1000.0;
+    }
 }
 std::pair<ImVec4, const char*> healthToColoredString(const std::uint8_t health)
 {

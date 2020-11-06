@@ -13,6 +13,8 @@
 #include <sam_msgs/BallastAngles.h>
 #include <sam_msgs/Leak.h>
 #include <sam_msgs/ConsumedChargeFeedback.h>
+#include <sam_msgs/CircuitStatusStampedArray.h>
+#include <sam_msgs/ConsumedChargeArray.h>
 
 #include <uavcan_ros_bridge/CircuitStatus.h>
 #include <uavcan_ros_bridge/UavcanNodeStatusNamedArray.h>
@@ -93,9 +95,14 @@ public:
 class SamMonitorWidget {
 private:
     TopicBuffer<sensor_msgs::BatteryState>* battery;
-    TopicBuffer<uavcan_ros_bridge::CircuitStatus>* circuit;
-    TopicBuffer<sam_msgs::ConsumedChargeFeedback>* charge;
+    // TopicBuffer<uavcan_ros_bridge::CircuitStatus>* circuit;
+    TopicBuffer<sam_msgs::CircuitStatusStampedArray>* circuit;
+    roswasm::Subscriber* subCharge;
+    void callbackCharge(const sam_msgs::ConsumedChargeArray& msg);
+    std::unordered_map<int, float> circuitCharges;
+    // TopicBuffer<sam_msgs::ConsumedChargeFeedback>* charge;
     TopicBuffer<uavcan_ros_bridge::UavcanNodeStatusNamedArray>* uavcan;
+    TopicBuffer<sam_msgs::ConsumedChargeArray>* charge;
     TopicBuffer<nav_msgs::Odometry>* odom;
     TopicBuffer<sam_msgs::PercentStamped>* vbs;
     TopicBuffer<sam_msgs::PercentStamped>* lcg;
