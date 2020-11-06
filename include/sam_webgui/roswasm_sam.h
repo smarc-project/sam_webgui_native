@@ -5,16 +5,19 @@
 
 #include <sensor_msgs/NavSatFix.h>
 #include <sensor_msgs/BatteryState.h>
+#include <sensor_msgs/Temperature.h>
 #include <nav_msgs/Odometry.h>
 
 #include <sam_msgs/PercentStamped.h>
-#include <sam_msgs/ThrusterRPMs.h>
 #include <sam_msgs/ThrusterAngles.h>
 #include <sam_msgs/BallastAngles.h>
 #include <sam_msgs/Leak.h>
 #include <sam_msgs/ConsumedChargeFeedback.h>
 #include <sam_msgs/CircuitStatusStampedArray.h>
 #include <sam_msgs/ConsumedChargeArray.h>
+
+#include <smarc_msgs/DualThrusterFeedback.h>
+#include <smarc_msgs/DualThrusterRPM.h>
 
 #include <uavcan_ros_bridge/CircuitStatus.h>
 #include <uavcan_ros_bridge/UavcanNodeStatusNamedArray.h>
@@ -23,7 +26,7 @@ namespace roswasm_webgui {
 
 bool draw_ballast_angles(sam_msgs::BallastAngles& msg, roswasm::Publisher* pub);
 bool draw_percent(sam_msgs::PercentStamped& msg, roswasm::Publisher* pub);
-bool draw_thruster_rpms(sam_msgs::ThrusterRPMs& msg, roswasm::Publisher* pub);
+bool draw_thruster_rpms(smarc_msgs::DualThrusterRPM& msg, roswasm::Publisher* pub);
 bool draw_thruster_angles(sam_msgs::ThrusterAngles& msg, roswasm::Publisher* pub);
 extern bool guiDebug;
 extern int drawTabs(int _guiMode, const std::map<int, const char*> _modeMap);
@@ -31,7 +34,7 @@ extern int drawTabs(int _guiMode, const std::map<int, const char*> _modeMap);
 class SamActuatorWidget {
 private:
     TopicWidget<sam_msgs::ThrusterAngles>* thruster_angles;
-    TopicWidget<sam_msgs::ThrusterRPMs>* thruster_rpms;
+    TopicWidget<smarc_msgs::DualThrusterRPM>* thruster_rpms;
     roswasm::Publisher* rpm_pub;
     roswasm::Timer* pub_timer;
     bool rpm_pub_enabled;
@@ -60,11 +63,12 @@ private:
     TopicBuffer<nav_msgs::Odometry>* odom;
     TopicBuffer<sam_msgs::PercentStamped>* vbs;
     TopicBuffer<sam_msgs::PercentStamped>* lcg;
-    TopicBuffer<sam_msgs::ThrusterRPMs>* rpms;
+    TopicBuffer<smarc_msgs::DualThrusterFeedback>* rpms;
     TopicBuffer<std_msgs::Float64>* depth;
     TopicBuffer<std_msgs::Float64>* pitch;
     TopicBuffer<std_msgs::Float64>* roll;
     TopicBuffer<std_msgs::Float64>* yaw;
+    TopicBuffer<sensor_msgs::Temperature>* motorTemp;
 public:
     bool is_emergency() { return was_leak; }
     void show_window(bool& show_dashboard_window);
@@ -80,7 +84,7 @@ private:
     TopicBuffer<nav_msgs::Odometry>* odom;
     TopicBuffer<sam_msgs::PercentStamped>* vbs;
     TopicBuffer<sam_msgs::PercentStamped>* lcg;
-    TopicBuffer<sam_msgs::ThrusterRPMs>* rpms;
+    TopicBuffer<smarc_msgs::DualThrusterFeedback>* rpms;
     TopicBuffer<std_msgs::Float64>* depth;
     TopicBuffer<std_msgs::Float64>* pitch;
     TopicBuffer<std_msgs::Float64>* roll;
@@ -106,11 +110,12 @@ private:
     TopicBuffer<nav_msgs::Odometry>* odom;
     TopicBuffer<sam_msgs::PercentStamped>* vbs;
     TopicBuffer<sam_msgs::PercentStamped>* lcg;
-    TopicBuffer<sam_msgs::ThrusterRPMs>* rpms;
+    TopicBuffer<smarc_msgs::DualThrusterFeedback>* rpms;
     TopicBuffer<std_msgs::Float64>* depth;
     TopicBuffer<std_msgs::Float64>* pitch;
     TopicBuffer<std_msgs::Float64>* roll;
     TopicBuffer<std_msgs::Float64>* yaw;
+    TopicBuffer<sensor_msgs::Temperature>* motorTemp;
 public:
     void show_window(bool& show_monitor_window, bool guiDebug);
     SamMonitorWidget(roswasm::NodeHandle* nh);
@@ -121,7 +126,7 @@ class SamTeleopWidget {
 private:
     bool enabled;
     sam_msgs::ThrusterAngles angles_msg;
-    sam_msgs::ThrusterRPMs rpm_msg;
+    smarc_msgs::DualThrusterRPM rpm_msg;
     roswasm::Publisher* rpm_pub;
     roswasm::Publisher* angle_pub;
     roswasm::Timer* pub_timer;

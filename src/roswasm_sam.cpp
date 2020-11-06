@@ -42,19 +42,19 @@ bool draw_percent(sam_msgs::PercentStamped& msg, roswasm::Publisher* pub)
     return lock;
 }
 
-bool draw_thruster_rpms(sam_msgs::ThrusterRPMs& msg, roswasm::Publisher* pub)
+bool draw_thruster_rpms(smarc_msgs::DualThrusterRPM& msg, roswasm::Publisher* pub)
 {
     ImGui::PushID("First cmd slider");
     ImGui::Text("Thruster 1");
     ImGui::SameLine();
-    ImGui::SliderInt("", &msg.thruster_1_rpm, -1000, 1000, "%drpm");
+    ImGui::SliderInt("", &msg.thruster_front.rpm, -1000, 1000, "%drpm");
     if (ImGui::IsItemDeactivatedAfterChange()) {
         pub->publish(msg);
     }
     bool lock = ImGui::IsItemActive();
     ImGui::PopID();
     ImGui::SameLine();
-    ImGui::InputInt("First cmd input", &msg.thruster_1_rpm);
+    ImGui::InputInt("First cmd input", &msg.thruster_front.rpm);
     if (ImGui::IsItemDeactivatedAfterChange()) {
         pub->publish(msg);
     }
@@ -62,14 +62,14 @@ bool draw_thruster_rpms(sam_msgs::ThrusterRPMs& msg, roswasm::Publisher* pub)
     ImGui::PushID("Second cmd slider");
     ImGui::Text("Thruster 2");
     ImGui::SameLine();
-    ImGui::SliderInt("", &msg.thruster_2_rpm, -1000, 1000, "%drpm");
+    ImGui::SliderInt("", &msg.thruster_back.rpm, -1000, 1000, "%drpm");
     if (ImGui::IsItemDeactivatedAfterChange()) {
         pub->publish(msg);
     }
     lock = lock || ImGui::IsItemActive();
     ImGui::PopID();
     ImGui::SameLine();
-    ImGui::InputInt("Second cmd input", &msg.thruster_2_rpm);
+    ImGui::InputInt("Second cmd input", &msg.thruster_back.rpm);
     if (ImGui::IsItemDeactivatedAfterChange()) {
         pub->publish(msg);
     }
@@ -116,8 +116,8 @@ SamActuatorWidget::SamActuatorWidget(roswasm::NodeHandle* nh) : rpm_pub_enabled(
     //thruster_rpms = new TopicPairWidget<geometry_msgs::Pose2D, std_msgs::Float64>(nh, DrawFloatPair("Thruster 1", -1000., 1000., "Thruster 2", -1000., 1000.), "core/rpm_cmd", "core/rpm_fb1", "core/rpm_fb2");
     thruster_angles = new TopicWidget<sam_msgs::ThrusterAngles>(nh, &draw_thruster_angles, "core/thrust_vector_cmd");
     //thruster_rpms = new TopicWidget<sam_msgs::ThrusterRPMs>(nh, &draw_thruster_rpms, "core/rpm_cmd", "core/rpm_fb");
-    thruster_rpms = new TopicWidget<sam_msgs::ThrusterRPMs>(nh, &draw_thruster_rpms, "core/rpm_cmd", "core/rpm_cmd");
-    rpm_pub = nh->advertise<sam_msgs::ThrusterRPMs>("core/rpm_cmd");
+    thruster_rpms = new TopicWidget<smarc_msgs::DualThrusterRPM>(nh, &draw_thruster_rpms, "core/thrusters_cmd", "core/thrusters_cmd");
+    rpm_pub = nh->advertise<smarc_msgs::DualThrusterRPM>("core/thrusters_cmd");
 
     lcg_actuator = new TopicWidget<sam_msgs::PercentStamped>(nh, &draw_percent, "core/lcg_cmd", "core/lcg_fb");
     lcg_control_enable = new TopicWidget<std_msgs::Bool>(nh, &draw_bool, "ctrl/lcg/pid_enable");
@@ -221,11 +221,12 @@ SamDashboardWidget::SamDashboardWidget(roswasm::NodeHandle* nh) : was_leak(false
     odom = new TopicBuffer<nav_msgs::Odometry>(nh, "dr/odom", 1000);
     vbs = new TopicBuffer<sam_msgs::PercentStamped>(nh, "core/vbs_fb", 1000);
     lcg = new TopicBuffer<sam_msgs::PercentStamped>(nh, "core/lcg_fb", 1000);
-    rpms = new TopicBuffer<sam_msgs::ThrusterRPMs>(nh, "core/rpm_fb", 1000);
+    rpms = new TopicBuffer<smarc_msgs::DualThrusterFeedback>(nh, "core/thrusters_fb", 1000);
     depth = new TopicBuffer<std_msgs::Float64>(nh, "ctrl/depth_feedback", 1000);
     pitch = new TopicBuffer<std_msgs::Float64>(nh, "ctrl/pitch_feedback", 1000);
     roll = new TopicBuffer<std_msgs::Float64>(nh, "ctrl/roll_feedback", 1000);
     yaw = new TopicBuffer<std_msgs::Float64>(nh, "ctrl/yaw_feedback", 1000);
+    motorTemp = new TopicBuffer<sensor_msgs::Temperature>(nh, "core/motor_temp", 1000);
 }
 
 void SamDashboardWidget::show_window(bool& show_dashboard_window)
@@ -255,6 +256,9 @@ void SamDashboardWidget::show_window(bool& show_dashboard_window)
 
         ImGui::SameLine(150);
         ImGui::Text("Battery: %.0f%%", 100.*battery->get_msg().percentage);
+
+        ImGui::SameLine(300);
+        ImGui::Text("Motor temp: %.0f °C", motorTemp->get_msg().temperature-273.15);
     }
 
     if (ImGui::CollapsingHeader("GPS and depth", ImGuiTreeNodeFlags_Framed | ImGuiTreeNodeFlags_DefaultOpen)) {
@@ -286,7 +290,7 @@ void SamDashboardWidget::show_window(bool& show_dashboard_window)
         ImGui::SameLine(150);
         ImGui::Text("LCG pos: %.2f%%", lcg->get_msg().value);
         ImGui::SameLine(300);
-        ImGui::Text("RPMs: %d, %d rpm", rpms->get_msg().thruster_1_rpm, rpms->get_msg().thruster_2_rpm);
+        ImGui::Text("RPMs: F %d, B %d rpm", rpms->get_msg().thruster_front.rpm.rpm, rpms->get_msg().thruster_back.rpm.rpm);
     }
 
     ImGui::End();
@@ -300,7 +304,7 @@ SamDashboardWidget2::SamDashboardWidget2(roswasm::NodeHandle* nh) : was_leak(fal
     odom = new TopicBuffer<nav_msgs::Odometry>(nh, "dr/odom", 1000);
     vbs = new TopicBuffer<sam_msgs::PercentStamped>(nh, "core/vbs_fb", 1000);
     lcg = new TopicBuffer<sam_msgs::PercentStamped>(nh, "core/lcg_fb", 1000);
-    rpms = new TopicBuffer<sam_msgs::ThrusterRPMs>(nh, "core/rpm_fb", 1000);
+    rpms = new TopicBuffer<smarc_msgs::DualThrusterFeedback>(nh, "core/thrusters_fb", 1000);
     depth = new TopicBuffer<std_msgs::Float64>(nh, "ctrl/depth_feedback", 1000);
     pitch = new TopicBuffer<std_msgs::Float64>(nh, "ctrl/pitch_feedback", 1000);
     roll = new TopicBuffer<std_msgs::Float64>(nh, "ctrl/roll_feedback", 1000);
@@ -421,7 +425,7 @@ void SamDashboardWidget2::show_window(bool& show_dashboard_window)
             ImGui::SameLine(150);
             ImGui::Text("LCG pos: %.2f%%", lcg->get_msg().value);
             ImGui::SameLine(300);
-            ImGui::Text("RPMs: %d, %d rpm", rpms->get_msg().thruster_1_rpm, rpms->get_msg().thruster_2_rpm);
+            ImGui::Text("RPMs: F %d, B %d rpm", rpms->get_msg().thruster_front.rpm.rpm, rpms->get_msg().thruster_back.rpm.rpm);
         }
     }
 
@@ -432,22 +436,19 @@ void SamDashboardWidget2::show_window(bool& show_dashboard_window)
 SamMonitorWidget::SamMonitorWidget(roswasm::NodeHandle* nh)
 {
     battery = new TopicBuffer<sensor_msgs::BatteryState>(nh, "core/battery_fb");
-    // circuit = new TopicBuffer<uavcan_ros_bridge::CircuitStatus>(nh, "core/circuit_status_fb");
     circuit = new TopicBuffer<sam_msgs::CircuitStatusStampedArray>(nh, "core/circuit_status_array_fb");
-    // subCharge = nh->subscribe<sam_msgs::ConsumedChargeArray>("core/consumed_charge_array_fb", std::bind(&TopicBuffer::callback, this, std::placeholders::_1), throttle_rate);
     subCharge = nh->subscribe<sam_msgs::ConsumedChargeArray>("core/consumed_charge_array_fb", std::bind(&SamMonitorWidget::callbackCharge, this, std::placeholders::_1), 10);
-    // subCharge = nh->subscribe<sam_msgs::ConsumedChargeArray>("core/consumed_charge_array_fb", &SamMonitorWidget::callbackCharge, 10);
-    // charge = new TopicBuffer<sam_msgs::ConsumedChargeFeedback>(nh, "core/consumed_charge_fb");
     charge = new TopicBuffer<sam_msgs::ConsumedChargeArray>(nh, "core/consumed_charge_array_fb");
     uavcan = new TopicBuffer<uavcan_ros_bridge::UavcanNodeStatusNamedArray>(nh, "core/uavcan_fb");
     odom = new TopicBuffer<nav_msgs::Odometry>(nh, "dr/odom", 1000);
     vbs = new TopicBuffer<sam_msgs::PercentStamped>(nh, "core/vbs_fb", 1000);
     lcg = new TopicBuffer<sam_msgs::PercentStamped>(nh, "core/lcg_fb", 1000);
-    rpms = new TopicBuffer<sam_msgs::ThrusterRPMs>(nh, "core/rpm_fb", 1000);
+    rpms = new TopicBuffer<smarc_msgs::DualThrusterFeedback>(nh, "core/thrusters_fb", 1000);
     depth = new TopicBuffer<std_msgs::Float64>(nh, "ctrl/depth_feedback", 1000);
     pitch = new TopicBuffer<std_msgs::Float64>(nh, "ctrl/pitch_feedback", 1000);
     roll = new TopicBuffer<std_msgs::Float64>(nh, "ctrl/roll_feedback", 1000);
     yaw = new TopicBuffer<std_msgs::Float64>(nh, "ctrl/yaw_feedback", 1000);
+    motorTemp = new TopicBuffer<sensor_msgs::Temperature>(nh, "core/motor_temp", 1000);
 }
 
 void SamMonitorWidget::show_window(bool& show_dashboard_window, bool guiDebug)
@@ -457,7 +458,7 @@ void SamMonitorWidget::show_window(bool& show_dashboard_window, bool guiDebug)
 
     static int selectedTab = 0;
     const std::vector<const char*> tabNames{"Electrical", "Driveline", "UAVCAN", "BT", "Comms", "Payloads"};
-    for (int i = 0; i < 4; i++)
+    for (int i = 0; i < tabNames.size(); i++)
     {
         if (i > 0) ImGui::SameLine();
         ImGui::PushID(i);
@@ -515,7 +516,7 @@ void SamMonitorWidget::show_window(bool& show_dashboard_window, bool guiDebug)
             ImGui::EndChild();
         }
         ImGui::Columns(2, "rail_split", false);
-        ImGui::SetColumnWidth(0, ImGui::GetWindowContentRegionWidth() * 0.6f);
+        ImGui::SetColumnWidth(0, 535);
         {
             ImGui::BeginChild("RailsL", ImVec2(0, 200), false, 0);
 
@@ -553,27 +554,14 @@ void SamMonitorWidget::show_window(bool& show_dashboard_window, bool guiDebug)
                 ImGui::SetColumnWidth(i,circuitColumns[i].first); ImGui::Text("%s", circuitColumns[i].second); ImGui::NextColumn();
             }
             ImGui::Separator();
-            // ImGui::Text("%d", circuit->get_msg().array[0].circuit.circuit_id); ImGui::NextColumn();
-            // ImGui::Text("%s", circuitNames[1]); ImGui::NextColumn();
-            // // ImGui::Text("name"); ImGui::NextColumn();
-            // ImGui::Text("%.2f", circuit->get_msg().array[0].circuit.voltage); ImGui::NextColumn();
-            // ImGui::Text("%.3f", circuit->get_msg().array[0].circuit.current); ImGui::NextColumn();
-            // ImGui::Text("%.2f", circuit->get_msg().array[0].circuit.voltage*circuit->get_msg().array[0].circuit.current); ImGui::NextColumn();
-            // ImGui::Text("%d", circuit->get_msg().array[0].circuit.error_flags); ImGui::NextColumn();
-            // ImGui::Text("10000"); ImGui::NextColumn();
 
             static int selectedRail = -1;
-            float vSum = 0, cSum = 0, pSum = 0;
             for (int i = 0; i < circuit->get_msg().array.size(); i++)
             {
                 const int id = circuit->get_msg().array[i].circuit.circuit_id;
                 const float voltage = circuit->get_msg().array[i].circuit.voltage;
                 const float current = circuit->get_msg().array[i].circuit.current;
                 const float power = voltage*current;
-                vSum += voltage;
-                cSum += current;
-                pSum += power;
-                // ImGui::Text("%d", id); ImGui::NextColumn();
                 char label[32];
                 sprintf(label, "%d", id);
                 if (ImGui::Selectable(label, selectedRail == id, ImGuiSelectableFlags_SpanAllColumns))
@@ -590,12 +578,10 @@ void SamMonitorWidget::show_window(bool& show_dashboard_window, bool guiDebug)
                     ImGui::Text("-");
                 }
                 ImGui::NextColumn();
-                // ImGui::Text("name"); ImGui::NextColumn();
                 ImGui::Text("%.2f", voltage); ImGui::NextColumn();
                 ImGui::Text("%.3f", current); ImGui::NextColumn();
                 ImGui::Text("%.2f", power); ImGui::NextColumn();
                 ImGui::Text("%d", circuit->get_msg().array[i].circuit.error_flags); ImGui::NextColumn();
-                // ImGui::Text("10000"); ImGui::NextColumn();
                 if (circuitCharges.find(id) != circuitCharges.end())
                 {
                     ImGui::Text("%.4f", circuitCharges[id]);
@@ -605,107 +591,12 @@ void SamMonitorWidget::show_window(bool& show_dashboard_window, bool guiDebug)
                     ImGui::Text("-");
                 }
                 ImGui::NextColumn();
-                // const std::pair<ImVec4, const char*> _health = healthToColoredString(uavcan->get_msg().array[i].ns.health);
-                // const std::pair<ImVec4, const char*> _mode = modeToColoredString(uavcan->get_msg().array[i].ns.mode);
-                // char label[32];
-                // sprintf(label, "%d", uavcan->get_msg().array[i].id);
-                // if (ImGui::Selectable(label, selectedRail == i, ImGuiSelectableFlags_SpanAllColumns))
-                // {
-                //     selectedRail = i;
-                // }
-                // ImGui::NextColumn();
-                // ImGui::Text("%s", uavcan->get_msg().array[i].name.c_str()); ImGui::NextColumn();
-                // ImGui::Text("%d", uavcan->get_msg().array[i].ns.uptime_sec); ImGui::NextColumn();
-                // ImGui::TextColored(_health.first, "%s", _health.second); ImGui::NextColumn();
-                // ImGui::TextColored(_mode.first, "%s", _mode.second); ImGui::NextColumn();
-                // ImGui::Text("0x%04X", uavcan->get_msg().array[i].ns.vendor_specific_status_code); ImGui::NextColumn();
             }
             ImGui::Columns(1);
             // ImGui::Separator();
-            
-            // ImGui::Columns(1);
-            // ImGui::Columns(circuitColumns.size()-1, "circuitTable2");
-            // ImGui::SetColumnWidth(0, circuitColumns[0].first + circuitColumns[1].first);
-            // for(int i = 2; i<circuitColumns.size(); i++)
-            // {
-            //     ImGui::SetColumnWidth(i,circuitColumns[i].first);
-            // }
-            // if (ImGui::Selectable("Total", selectedRail == 0, ImGuiSelectableFlags_SpanAllColumns))
-            // {
-            //     selectedRail = 0;
-            // }
-            // ImGui::NextColumn(); ImGui::NextColumn(); ImGui::NextColumn();
-            // ImGui::Text("%.2f", pSum);
-            
-            // ImGui::Text("With border:");
-            // ImGui::Columns(4, "mycolumns"); // 4-ways, with border
-            // ImGui::SetColumnWidth(0,50);
-            // ImGui::Separator();
-            // ImGui::Text("ID"); ImGui::NextColumn();
-            // ImGui::Text("Name"); ImGui::NextColumn();
-            // ImGui::Text("Path"); ImGui::NextColumn();
-            // ImGui::Text("Hovered"); ImGui::NextColumn();
-            // ImGui::Separator();
-            // const char* names[3] = { "One", "Two", "Three" };
-            // const char* paths[3] = { "/path/one", "/path/two", "/path/three" };
-            // static int selected = -1;
-            // for (int i = 0; i < 2; i++)
-            // {
-            //     char label[32];
-            //     sprintf(label, "%04d", i);
-            //     if (ImGui::Selectable(label, selected == i, ImGuiSelectableFlags_SpanAllColumns))
-            //         selected = i;
-            //     bool hovered = ImGui::IsItemHovered();
-            //     ImGui::NextColumn();
-            //     ImGui::TextColored(ImGui::GetStyleColorVec4(ImGuiCol_Text), "%s", names[i]); ImGui::NextColumn();
-            //     ImGui::TextColored(ImGui::GetStyleColorVec4(ImGuiCol_Text), "%s", names[i]); ImGui::NextColumn();
-            //     ImGui::Text("%d", hovered); ImGui::NextColumn();
-            // }
-            ImGui::Columns(1);
             ImGui::EndChild();
         }
-        {
-            // ImGui::BeginChild("ChildR", ImVec2(0, 260), false, ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse);
-            ImGui::BeginChild("ChildR", ImVec2(ImGui::GetWindowContentRegionWidth() * 0.5f, 260), false, 0);
-            ImGui::Text("Temperatures");
-            ImGui::Columns(4, "mycolumns"); // 4-ways, with border
-            ImGui::SetColumnWidth(0,50);
-            ImGui::Separator();
-            ImGui::Text("ID"); ImGui::NextColumn();
-            ImGui::Text("Name"); ImGui::NextColumn();
-            ImGui::Text("Path"); ImGui::NextColumn();
-            ImGui::Text("Hovered"); ImGui::NextColumn();
-            ImGui::Separator();
-            // const char* names[3] = { "One", "Two", "Three" };
-            const char* paths[3] = { "/path/one", "/path/two", "/path/three" };
-            static int selected = -1;
-            for (int i = 0; i < 3; i++)
-            {
-                char label[32];
-                sprintf(label, "%04d", i);
-                if (ImGui::Selectable(label, selected == i, ImGuiSelectableFlags_SpanAllColumns))
-                    selected = i;
-                bool hovered = ImGui::IsItemHovered();
-                ImGui::NextColumn();
-                ImGui::Text("%s", names[i]); ImGui::NextColumn();
-                ImGui::Text("%s", names[i]); ImGui::NextColumn();
-                ImGui::Text("%d", hovered); ImGui::NextColumn();
-            }
-            ImGui::Columns(1);
-            ImGui::EndChild();
-        }
-        ImGui::NextColumn();
-        // ImGui::SameLine();
-        {
-            ImGui::BeginChild("RailsR", ImGui::GetContentRegionAvail(), false, 0);
-            ImGui::Text("Power details");
-            ImGui::BeginChild("RailsR2", ImVec2(0, 0), true, 0);
-            ImGui::EndChild();
-            ImGui::EndChild();
-        }
-        // ImGui::SameLine();
         // {
-        //     // ImGui::BeginChild("ChildR", ImVec2(0, 260), false, ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse);
         //     ImGui::BeginChild("ChildR", ImVec2(ImGui::GetWindowContentRegionWidth() * 0.5f, 260), false, 0);
         //     ImGui::Text("Temperatures");
         //     ImGui::Columns(4, "mycolumns"); // 4-ways, with border
@@ -734,6 +625,15 @@ void SamMonitorWidget::show_window(bool& show_dashboard_window, bool guiDebug)
         //     ImGui::Columns(1);
         //     ImGui::EndChild();
         // }
+        ImGui::NextColumn();
+        // ImGui::SameLine();
+        {
+            ImGui::BeginChild("RailsR", ImGui::GetContentRegionAvail(), false, 0);
+            ImGui::Text("Power details");
+            ImGui::BeginChild("RailsR2", ImVec2(0, 0), true, 0);
+            ImGui::EndChild();
+            ImGui::EndChild();
+        }
     } else if(selectedTab == 2) {
         {
             std::pair<ImVec4, const char*> healthToColoredString(const std::uint8_t health);
@@ -742,7 +642,6 @@ void SamMonitorWidget::show_window(bool& show_dashboard_window, bool guiDebug)
             ImVec2 _avail = ImGui::GetContentRegionAvail();
             ImGui::BeginChild("UAVCAN", ImVec2(645, _avail[1]), false, 0);
             int sizzy = uavcan->get_msg().array.size();
-            int sizzy2 = uavcan->get_msg().array[0].name.size();
 
             ImGui::Text("UAVCAN network");
             const std::vector<std::pair<int, const char*>> uavcanColumns{
@@ -774,7 +673,15 @@ void SamMonitorWidget::show_window(bool& show_dashboard_window, bool guiDebug)
                     selectedUavcan = i;
                 }
                 ImGui::NextColumn();
-                ImGui::Text("%s", uavcan->get_msg().array[i].name.c_str()); ImGui::NextColumn();
+                if(uavcan->get_msg().array[i].id == 98)
+                {
+                    ImGui::Text("smarc.sam.uavcan_bridge.publisher");
+                }
+                else
+                {
+                    ImGui::Text("%s", uavcan->get_msg().array[i].name.c_str());
+                }
+                ImGui::NextColumn();
                 ImGui::Text("%d", uavcan->get_msg().array[i].ns.uptime_sec); ImGui::NextColumn();
                 ImGui::TextColored(_health.first, "%s", _health.second); ImGui::NextColumn();
                 ImGui::TextColored(_mode.first, "%s", _mode.second); ImGui::NextColumn();
@@ -884,29 +791,29 @@ void SamMonitorWidget::show_window(bool& show_dashboard_window, bool guiDebug)
         //     ImGui::Text("Depth: %.2fm", depth->get_msg().data);
         // }
 
-        if (ImGui::CollapsingHeader("DR translation", ImGuiTreeNodeFlags_Framed | ImGuiTreeNodeFlags_DefaultOpen)) {
-            ImGui::Text("X: %.2fm", odom->get_msg().pose.pose.position.x);
-            ImGui::SameLine(150);
-            ImGui::Text("Y: %.2fm", odom->get_msg().pose.pose.position.y);
-            ImGui::SameLine(300);
-            ImGui::Text("Z: %.2fm", odom->get_msg().pose.pose.position.z);
-        }
+        // if (ImGui::CollapsingHeader("DR translation", ImGuiTreeNodeFlags_Framed | ImGuiTreeNodeFlags_DefaultOpen)) {
+        //     ImGui::Text("X: %.2fm", odom->get_msg().pose.pose.position.x);
+        //     ImGui::SameLine(150);
+        //     ImGui::Text("Y: %.2fm", odom->get_msg().pose.pose.position.y);
+        //     ImGui::SameLine(300);
+        //     ImGui::Text("Z: %.2fm", odom->get_msg().pose.pose.position.z);
+        // }
 
-        if (ImGui::CollapsingHeader("DR rotation", ImGuiTreeNodeFlags_Framed | ImGuiTreeNodeFlags_DefaultOpen)) {
-            ImGui::Text("Roll: %.2fdeg", 180./M_PI*roll->get_msg().data);
-            ImGui::SameLine(150);
-            ImGui::Text("Pitch: %.2fdeg", 180./M_PI*pitch->get_msg().data);
-            ImGui::SameLine(300);
-            ImGui::Text("Yaw: %.2fdeg", 180./M_PI*yaw->get_msg().data);
-        }
+        // if (ImGui::CollapsingHeader("DR rotation", ImGuiTreeNodeFlags_Framed | ImGuiTreeNodeFlags_DefaultOpen)) {
+        //     ImGui::Text("Roll: %.2fdeg", 180./M_PI*roll->get_msg().data);
+        //     ImGui::SameLine(150);
+        //     ImGui::Text("Pitch: %.2fdeg", 180./M_PI*pitch->get_msg().data);
+        //     ImGui::SameLine(300);
+        //     ImGui::Text("Yaw: %.2fdeg", 180./M_PI*yaw->get_msg().data);
+        // }
 
-        if (ImGui::CollapsingHeader("Actuator feedback", ImGuiTreeNodeFlags_Framed | ImGuiTreeNodeFlags_DefaultOpen)) {
-            ImGui::Text("VBS pos: %.2f%%", vbs->get_msg().value);
-            ImGui::SameLine(150);
-            ImGui::Text("LCG pos: %.2f%%", lcg->get_msg().value);
-            ImGui::SameLine(300);
-            ImGui::Text("RPMs: %d, %d rpm", rpms->get_msg().thruster_1_rpm, rpms->get_msg().thruster_2_rpm);
-        }
+        // if (ImGui::CollapsingHeader("Actuator feedback", ImGuiTreeNodeFlags_Framed | ImGuiTreeNodeFlags_DefaultOpen)) {
+        //     ImGui::Text("VBS pos: %.2f%%", vbs->get_msg().value);
+        //     ImGui::SameLine(150);
+        //     ImGui::Text("LCG pos: %.2f%%", lcg->get_msg().value);
+        //     ImGui::SameLine(300);
+        //     ImGui::Text("RPMs: F %d, B %d rpm", rpms->get_msg().thruster_front.rpm.rpm, rpms->get_msg().thruster_back.rpm.rpm);
+        // }
     }
 
     ImGui::End();
@@ -960,7 +867,7 @@ std::pair<ImVec4, const char*> modeToColoredString(const std::uint8_t mode)
 SamTeleopWidget::SamTeleopWidget(roswasm::NodeHandle* nh) : enabled(false), pub_timer(nullptr)
 {
     angle_pub = nh->advertise<sam_msgs::ThrusterAngles>("core/thrust_vector_cmd");
-    rpm_pub = nh->advertise<sam_msgs::ThrusterRPMs>("core/rpm_cmd");
+    rpm_pub = nh->advertise<smarc_msgs::DualThrusterRPM>("core/thrusters_cmd");
 }
 
 void SamTeleopWidget::pub_callback(const ros::TimerEvent& e)
@@ -979,7 +886,8 @@ void SamTeleopWidget::show_window(bool& show_teleop_window)
     ImGui::SetNextWindowSize(ImVec2(472, 80), ImGuiCond_FirstUseEver);
     ImGui::Begin("Keyboard teleop", &show_teleop_window);
 
-    angles_msg.thruster_vertical_radians = angles_msg.thruster_horizontal_radians = rpm_msg.thruster_1_rpm = rpm_msg.thruster_2_rpm = 0.0f;
+    angles_msg.thruster_vertical_radians = angles_msg.thruster_horizontal_radians = 0.0f;
+    rpm_msg.thruster_front.rpm = rpm_msg.thruster_back.rpm = 0;
 
     float sz = ImGui::GetTextLineHeight();
     ImGui::BeginGroup();
@@ -1063,8 +971,8 @@ void SamTeleopWidget::show_window(bool& show_teleop_window)
         ImGui::PushStyleColor(ImGuiCol_Button, col);
     }
     if (ImGui::Button("w") || key_down) {
-        rpm_msg.thruster_1_rpm = 500;
-        rpm_msg.thruster_2_rpm = 500;
+        rpm_msg.thruster_front.rpm = 500;
+        rpm_msg.thruster_back.rpm = 500;
     }
     if (key_down) {
         ImGui::PopStyleColor();   
@@ -1074,8 +982,8 @@ void SamTeleopWidget::show_window(bool& show_teleop_window)
         ImGui::PushStyleColor(ImGuiCol_Button, col);
     }
     if (ImGui::Button("s") || key_down) {
-        rpm_msg.thruster_1_rpm = -500;
-        rpm_msg.thruster_2_rpm = -500;
+        rpm_msg.thruster_front.rpm = -500;
+        rpm_msg.thruster_back.rpm = -500;
     }
     if (key_down) {
         ImGui::PopStyleColor();   
