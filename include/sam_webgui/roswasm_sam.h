@@ -28,6 +28,9 @@ bool draw_ballast_angles(sam_msgs::BallastAngles& msg, roswasm::Publisher* pub);
 bool draw_percent(sam_msgs::PercentStamped& msg, roswasm::Publisher* pub);
 bool draw_thruster_rpms(smarc_msgs::DualThrusterRPM& msg, roswasm::Publisher* pub);
 bool draw_thruster_angles(sam_msgs::ThrusterAngles& msg, roswasm::Publisher* pub);
+// // bool draw_bar_signed(sam_msgs::ThrusterAngles& msg, roswasm::Publisher* pub);
+// bool draw_bar_signed(const ImVec2 pos, const ImVec2 size, const int v_fb, const int rangeBar, const int v_cmd, bool draw_value = true);
+
 extern bool guiDebug;
 extern int drawTabs(int _guiMode, const std::map<int, const char*> _modeMap);
 
@@ -110,7 +113,8 @@ private:
     TopicBuffer<nav_msgs::Odometry>* odom;
     TopicBuffer<sam_msgs::PercentStamped>* vbs;
     TopicBuffer<sam_msgs::PercentStamped>* lcg;
-    TopicBuffer<smarc_msgs::DualThrusterFeedback>* rpms;
+    TopicBuffer<smarc_msgs::DualThrusterFeedback>* thrusters_fb;
+    TopicBuffer<smarc_msgs::DualThrusterRPM>* thrusters_cmd;
     TopicBuffer<std_msgs::Float64>* depth;
     TopicBuffer<std_msgs::Float64>* pitch;
     TopicBuffer<std_msgs::Float64>* roll;

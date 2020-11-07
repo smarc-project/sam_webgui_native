@@ -1,6 +1,7 @@
 #include <sam_webgui/roswasm_sam.h>
 
 #include <roswasm_webgui/imgui/imgui.h>
+#include <roswasm_webgui/imgui/imgui_internal.h>
 
 namespace roswasm_webgui {
 
@@ -109,6 +110,46 @@ bool draw_thruster_angles(sam_msgs::ThrusterAngles& msg, roswasm::Publisher* pub
 
     return false;
 }
+
+// // bool draw_bar_signed(sam_msgs::ThrusterAngles& msg, roswasm::Publisher* pub)
+// bool draw_bar_signed(const ImVec2 pos, const ImVec2 size, const int v_fb, const int rangeBar, const int v_cmd, bool draw_value = true)
+// {
+//     ImVec2 motorWindowPos = ImGui::GetCursorScreenPos();
+//     ImVec2 motorOrigin = ImGui::GetCursorPos();
+
+//     // const ImVec2 pos = ImVec2(130, 60);
+//     // const ImVec2 size = ImVec2(40, 100);
+
+//     const ImVec2 barPos = ImVec2(motorWindowPos.x + pos.x, motorWindowPos.y + pos.y);
+//     const bool outOfRange = std::abs(v_fb) > rangeBar ? true : false;
+//     const float frac_fb =  (outOfRange) ? (v_fb < 0 ? -1.0f : 1.0f) : v_fb / rangeBar;
+//     const float frac_cmd =  (std::abs(v_cmd) > rangeBar) ? (v_cmd < 0 ? -1.0f : 1.0f) : v_cmd / rangeBar;
+
+//     // const float frac_fb = v_fb / rangeBar;
+//     // const float frac_cmd = v_cmd / rangeBar;
+//     const ImVec2 barLength = ImVec2((size.y/2-3)*frac_fb, (size.y/2-3)*frac_cmd);
+//     const ImVec2 bar_p1 = ImVec2(barPos.x + 3, barPos.y + size.y/2);
+//     const ImVec2 bar_p2 = ImVec2(barPos.x + size.x - 3, barPos.y + size.y/2);
+//     if (outOfRange)
+//     {
+//         ImGui::GetWindowDrawList()->AddRectFilled(bar_p1, ImVec2(bar_p2.x, bar_p2.y - barLength[0]), IM_COL32(195,0,0,255)); // fill
+//     }
+//     else
+//     {
+//         ImGui::GetWindowDrawList()->AddRectFilled(bar_p1, ImVec2(bar_p2.x, bar_p2.y - barLength[0]), ImGui::GetColorU32(ImGuiCol_PlotHistogram)); // fill
+//     }
+//     ImGui::GetWindowDrawList()->AddLine(ImVec2(barPos.x + 2, bar_p2.y - barLength[1]), ImVec2(barPos.x + size.x - 2, bar_p2.y - barLength[1]), IM_COL32(255,0,0,255), 3); // line
+//     ImGui::GetWindowDrawList()->AddRect(barPos, ImVec2(barPos.x + size.x, barPos.y + size.y), ImGui::GetColorU32(ImGuiCol_FrameBgActive)); // border
+//     // ImGui::Dummy(size);
+
+//     char label1[10];
+//     sprintf(label1, "%d", v_fb);
+//     const ImVec2 barLabelPos = ImVec2(motorOrigin.x + pos.x + size.x / 2, motorOrigin.y + pos.y + size.y);
+//     ImGui::SetCursorPos(ImVec2(barLabelPos.x - ImGui::CalcTextSize(label1).x / 2, barLabelPos.y));
+//     ImGui::Text("%s", label1);
+
+//     return false;
+// }
 
 SamActuatorWidget::SamActuatorWidget(roswasm::NodeHandle* nh) : rpm_pub_enabled(false), pub_timer(nullptr)
 {
@@ -443,7 +484,8 @@ SamMonitorWidget::SamMonitorWidget(roswasm::NodeHandle* nh)
     odom = new TopicBuffer<nav_msgs::Odometry>(nh, "dr/odom", 1000);
     vbs = new TopicBuffer<sam_msgs::PercentStamped>(nh, "core/vbs_fb", 1000);
     lcg = new TopicBuffer<sam_msgs::PercentStamped>(nh, "core/lcg_fb", 1000);
-    rpms = new TopicBuffer<smarc_msgs::DualThrusterFeedback>(nh, "core/thrusters_fb", 1000);
+    thrusters_fb = new TopicBuffer<smarc_msgs::DualThrusterFeedback>(nh, "core/thrusters_fb", 1000);
+    thrusters_cmd = new TopicBuffer<smarc_msgs::DualThrusterRPM>(nh, "core/thrusters_cmd", 1000);
     depth = new TopicBuffer<std_msgs::Float64>(nh, "ctrl/depth_feedback", 1000);
     pitch = new TopicBuffer<std_msgs::Float64>(nh, "ctrl/pitch_feedback", 1000);
     roll = new TopicBuffer<std_msgs::Float64>(nh, "ctrl/roll_feedback", 1000);
@@ -456,7 +498,7 @@ void SamMonitorWidget::show_window(bool& show_dashboard_window, bool guiDebug)
     ImGui::SetNextWindowSize(ImVec2(1000, 450), ImGuiCond_FirstUseEver);
     ImGui::Begin("Monitoring dashboard", &show_dashboard_window);
 
-    static int selectedTab = 0;
+    static int selectedTab = 1;
     const std::vector<const char*> tabNames{"Electrical", "Driveline", "UAVCAN", "BT", "Comms", "Payloads"};
     for (int i = 0; i < tabNames.size(); i++)
     {
@@ -783,6 +825,132 @@ void SamMonitorWidget::show_window(bool& show_dashboard_window, bool guiDebug)
         //     ImGui::EndChild();
         // }
     } else if(selectedTab == 1) {
+        {
+            ImGui::BeginChild("Motors", ImVec2(200, 300), true, 0);
+            
+            ImVec2 motorWindowPos = ImGui::GetCursorScreenPos();
+            ImVec2 motorOrigin = ImGui::GetCursorPos();
+
+            ImGui::Text("Motors");
+            ImGui::Separator();
+            const float rangeBar = 1000.0f;
+
+            const int v_fb = thrusters_fb->get_msg().thruster_front.rpm.rpm;
+            const int v_fb2 = thrusters_fb->get_msg().thruster_back.rpm.rpm;
+            const int v_cmd = thrusters_cmd->get_msg().thruster_front.rpm ? thrusters_cmd->get_msg().thruster_front.rpm : 0;
+            const int v_cmd2 = thrusters_cmd->get_msg().thruster_back.rpm ? thrusters_cmd->get_msg().thruster_back.rpm : 0;
+            
+            // static int v_fb = 0;
+            // ImGui::SliderInt("fb", &v_fb, -1000, 1000);
+            // static int v_cmd = 0;
+            // ImGui::SliderInt("cmd", &v_cmd, -1000, 1000);
+            ImGui::Text("Front %c", "|/-\\"[(int)(ImGui::GetTime() / 0.05f) & 3]);
+            ImGui::Text("Rear %c", "|/-\\"[(int)(ImGui::GetTime() / 0.05f) & 3]);
+            ImGui::SameLine();
+
+            const ImVec2 size = ImVec2(40, 100);
+            // draw_bar_signed(pos, size, v_fb, v_cmd, rangeBar, true);
+            {
+                const ImVec2 pos = ImVec2(80, 60);
+
+                const ImVec2 barPos = ImVec2(motorWindowPos.x + pos.x, motorWindowPos.y + pos.y);
+                const bool outOfRange = std::abs(v_fb) > rangeBar ? true : false;
+                const float frac_fb =  (outOfRange) ? (v_fb < 0 ? -1.0f : 1.0f) : v_fb / rangeBar;
+                const float frac_cmd =  (std::abs(v_cmd) > rangeBar) ? (v_cmd < 0 ? -1.0f : 1.0f) : v_cmd / rangeBar;
+
+                // const float frac_fb = v_fb / rangeBar;
+                // const float frac_cmd = v_cmd / rangeBar;
+                const ImVec2 barLength = ImVec2((size.y/2-3)*frac_fb, (size.y/2-3)*frac_cmd);
+                const ImVec2 bar_p1 = ImVec2(barPos.x + 3, barPos.y + size.y/2);
+                const ImVec2 bar_p2 = ImVec2(barPos.x + size.x - 3, barPos.y + size.y/2);
+                if (outOfRange)
+                {
+                    ImGui::GetWindowDrawList()->AddRectFilled(bar_p1, ImVec2(bar_p2.x, bar_p2.y - barLength[0]), IM_COL32(195,0,0,255)); // fill
+                }
+                else
+                {
+                    ImGui::GetWindowDrawList()->AddRectFilled(bar_p1, ImVec2(bar_p2.x, bar_p2.y - barLength[0]), ImGui::GetColorU32(ImGuiCol_PlotHistogram)); // fill
+                }
+                ImGui::GetWindowDrawList()->AddLine(ImVec2(barPos.x + 2, bar_p2.y - barLength[1]), ImVec2(barPos.x + size.x - 2, bar_p2.y - barLength[1]), IM_COL32(255,0,0,255), 3); // line
+                ImGui::GetWindowDrawList()->AddRect(barPos, ImVec2(barPos.x + size.x, barPos.y + size.y), ImGui::GetColorU32(ImGuiCol_FrameBgActive)); // border
+                // ImGui::Dummy(size);
+
+                char label1[10];
+                sprintf(label1, "%d", v_fb);
+                const ImVec2 barLabelPos = ImVec2(motorOrigin.x + pos.x + size.x / 2, motorOrigin.y + pos.y + size.y);
+                ImGui::SetCursorPos(ImVec2(barLabelPos.x - ImGui::CalcTextSize(label1).x / 2, barLabelPos.y));
+                ImGui::Text("%s", label1);
+            }
+
+            {
+                const ImVec2 pos2 = ImVec2(130, 60);
+
+                const ImVec2 barPos2 = ImVec2(motorWindowPos.x + pos2.x, motorWindowPos.y + pos2.y);
+                const bool outOfRange2 = std::abs(v_fb2) > rangeBar ? true : false;
+                const float frac_fb2 =  (outOfRange2) ? (v_fb2 < 0 ? -1.0f : 1.0f) : v_fb2 / rangeBar;
+                const float frac_cmd2 =  (std::abs(v_cmd2) > rangeBar) ? (v_cmd2 < 0 ? -1.0f : 1.0f) : v_cmd2 / rangeBar;
+
+                // const float frac_fb2 = v_fb / rangeBar;
+                // const float frac_cmd2 = v_cmd2 / rangeBar;
+                const ImVec2 barLength2 = ImVec2((size.y/2-3)*frac_fb2, (size.y/2-3)*frac_cmd2);
+                const ImVec2 bar_p12 = ImVec2(barPos2.x + 3, barPos2.y + size.y/2);
+                const ImVec2 bar_p22 = ImVec2(barPos2.x + size.x - 3, barPos2.y + size.y/2);
+                if (outOfRange2)
+                {
+                    ImGui::GetWindowDrawList()->AddRectFilled(bar_p12, ImVec2(bar_p22.x, bar_p22.y - barLength2[0]), IM_COL32(195,0,0,255)); // fill
+                }
+                else
+                {
+                    ImGui::GetWindowDrawList()->AddRectFilled(bar_p12, ImVec2(bar_p22.x, bar_p22.y - barLength2[0]), ImGui::GetColorU32(ImGuiCol_PlotHistogram)); // fill
+                }
+                ImGui::GetWindowDrawList()->AddLine(ImVec2(barPos2.x + 2, bar_p22.y - barLength2[1]), ImVec2(barPos2.x + size.x - 2, bar_p22.y - barLength2[1]), IM_COL32(255,0,0,255), 3); // line
+                ImGui::GetWindowDrawList()->AddRect(barPos2, ImVec2(barPos2.x + size.x, barPos2.y + size.y), ImGui::GetColorU32(ImGuiCol_FrameBgActive)); // border
+                // ImGui::Dummy(size);
+
+                char label12[10];
+                sprintf(label12, "%d", v_fb2);
+                const ImVec2 barLabelPos2 = ImVec2(motorOrigin.x + pos2.x + size.x / 2, motorOrigin.y + pos2.y + size.y);
+                ImGui::SetCursorPos(ImVec2(barLabelPos2.x - ImGui::CalcTextSize(label12).x / 2, barLabelPos2.y));
+                ImGui::Text("%s", label12);
+            }
+
+
+            ImGui::Text("Motors");
+
+            // std::string text = "1";
+            // ImGui::SetCursorPosX(ImGui::GetCursorPosX() + ImGui::GetColumnWidth() - ImGui::CalcTextSize(text.c_str()).x - ImGui::GetScrollX() - 2 * ImGui::GetStyle().ItemSpacing.x);
+            // ImGui::Text("%s", text);
+
+            // const std::vector<std::pair<int, const char*>> batteryColumns{
+            //     {30,"ID"},
+            //     {70,"SoC [%]"},
+            //     {90,"Voltage [V]"},
+            //     {90,"Current [A]"},
+            //     {90,"Charge [Ah]"},
+            //     {105,"Capacity [Ah]"},
+            //     // {70,"Status"},
+            //     // {70,"Health"},
+            // };
+            // ImGui::Columns(batteryColumns.size(), "batteryTable");
+            // ImGui::Separator();
+            
+            // for(int i = 0; i<batteryColumns.size(); i++)
+            // {
+            //     ImGui::SetColumnWidth(i,batteryColumns[i].first); ImGui::Text("%s", batteryColumns[i].second); ImGui::NextColumn();
+            // }
+            // ImGui::Separator();
+
+            // ImGui::Text("1"); ImGui::NextColumn();
+            // ImGui::Text("%.1f", 100.*battery->get_msg().percentage); ImGui::NextColumn();
+            // ImGui::Text("%.2f", battery->get_msg().voltage); ImGui::NextColumn();
+            // ImGui::Text("%.2f", battery->get_msg().current); ImGui::NextColumn();
+            // ImGui::Text("%.2f", battery->get_msg().charge); ImGui::NextColumn();
+            // ImGui::Text("%.2f", battery->get_msg().capacity); ImGui::NextColumn();
+            // // ImGui::Text("UNKNOWN"); ImGui::NextColumn();
+            // // ImGui::Text("UNKNOWN"); ImGui::NextColumn();
+            ImGui::EndChild();
+        }
+
         // if (ImGui::CollapsingHeader("GPS and depth", ImGuiTreeNodeFlags_Framed | ImGuiTreeNodeFlags_DefaultOpen)) {
         //     ImGui::Text("Lat: %.5f", gps->get_msg().latitude);
         //     ImGui::SameLine(150);
@@ -812,7 +980,7 @@ void SamMonitorWidget::show_window(bool& show_dashboard_window, bool guiDebug)
         //     ImGui::SameLine(150);
         //     ImGui::Text("LCG pos: %.2f%%", lcg->get_msg().value);
         //     ImGui::SameLine(300);
-        //     ImGui::Text("RPMs: F %d, B %d rpm", rpms->get_msg().thruster_front.rpm.rpm, rpms->get_msg().thruster_back.rpm.rpm);
+        //     ImGui::Text("RPMs: F %d, B %d rpm", thrusters_fb->get_msg().thruster_front.rpm.rpm, thrusters_fb->get_msg().thruster_back.rpm.rpm);
         // }
     }
 
