@@ -121,6 +121,7 @@ private:
     TopicBuffer<sam_msgs::PercentStamped>* vbs_fb;
     TopicBuffer<sam_msgs::PercentStamped>* vbs_cmd;
     TopicBuffer<sensor_msgs::FluidPressure>* vbs_pressure;
+    TopicBuffer<sensor_msgs::Temperature>* vbs_temp;
     TopicBuffer<sam_msgs::PercentStamped>* lcg;
     TopicBuffer<smarc_msgs::DualThrusterFeedback>* thrusters_fb;
     TopicBuffer<smarc_msgs::DualThrusterRPM>* thrusters_cmd;

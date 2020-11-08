@@ -488,6 +488,7 @@ SamMonitorWidget::SamMonitorWidget(roswasm::NodeHandle* nh)
     vbs_fb = new TopicBuffer<sam_msgs::PercentStamped>(nh, "core/vbs_fb", 1000);
     vbs_cmd = new TopicBuffer<sam_msgs::PercentStamped>(nh, "core/vbs_cmd", 1000);
     vbs_pressure = new TopicBuffer<sensor_msgs::FluidPressure>(nh, "core/vbs_tank_pressure", 1000);
+    vbs_temp = new TopicBuffer<sensor_msgs::Temperature>(nh, "core/vbs_tank_temperature", 1000);
     lcg = new TopicBuffer<sam_msgs::PercentStamped>(nh, "core/lcg_fb", 1000);
     thrusters_fb = new TopicBuffer<smarc_msgs::DualThrusterFeedback>(nh, "core/thrusters_fb", 1000);
     thrusters_cmd = new TopicBuffer<smarc_msgs::DualThrusterRPM>(nh, "core/thrusters_cmd", 1000);
@@ -1103,6 +1104,9 @@ void SamMonitorWidget::show_window(bool& show_dashboard_window, bool guiDebug)
             ImGui::Separator();
             ImGui::Text("Variance");
             ImGui::Text("%.2f bar", vbs_pressure->get_msg().variance/100000.0f);
+            ImGui::Separator();
+            ImGui::Text("Temperature");
+            ImGui::Text("%.1f °C", vbs_temp->get_msg().temperature-273.15);
 
             ImGui::EndChild();
         }
