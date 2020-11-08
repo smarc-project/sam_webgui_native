@@ -6,7 +6,7 @@ if (DEFINED ENV{EMSDK})
 ## Find catkin macros and libraries
 ## if COMPONENTS list like find_package(catkin REQUIRED COMPONENTS xyz)
 ## is used, also find other catkin packages
-find_package(catkin REQUIRED COMPONENTS roscpp roswasm_webgui uavcan_ros_bridge sam_msgs smarc_msgs std_msgs sensor_msgs geometry_msgs nav_msgs)
+find_package(catkin REQUIRED COMPONENTS roscpp roswasm_webgui uavcan_ros_bridge sam_msgs smarc_msgs std_msgs sensor_msgs geometry_msgs nav_msgs cola2_msgs sbg_driver)
 
 ###################################
 ## catkin specific configuration ##
@@ -15,7 +15,7 @@ find_package(catkin REQUIRED COMPONENTS roscpp roswasm_webgui uavcan_ros_bridge 
 catkin_package(
 #  INCLUDE_DIRS include
 #  LIBRARIES sam_webgui
-#  CATKIN_DEPENDS other_catkin_pkg
+#  CATKIN_DEPENDS cola2_msgs
 #  DEPENDS roswasm_webgui
 )
 

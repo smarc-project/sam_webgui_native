@@ -6,6 +6,7 @@
 #include <sensor_msgs/NavSatFix.h>
 #include <sensor_msgs/BatteryState.h>
 #include <sensor_msgs/Temperature.h>
+#include <sensor_msgs/FluidPressure.h>
 #include <nav_msgs/Odometry.h>
 
 #include <sam_msgs/PercentStamped.h>
@@ -18,9 +19,14 @@
 
 #include <smarc_msgs/DualThrusterFeedback.h>
 #include <smarc_msgs/DualThrusterRPM.h>
+#include <smarc_msgs/CTDFeedback.h>
 
 #include <uavcan_ros_bridge/CircuitStatus.h>
 #include <uavcan_ros_bridge/UavcanNodeStatusNamedArray.h>
+
+#include <cola2_msgs/DVL.h>
+
+#include <sbg_driver/SbgEkfEuler.h>
 
 namespace roswasm_webgui {
 
@@ -64,9 +70,10 @@ private:
     TopicBuffer<sensor_msgs::NavSatFix>* gps;
     TopicBuffer<sensor_msgs::BatteryState>* battery;
     TopicBuffer<nav_msgs::Odometry>* odom;
-    TopicBuffer<sam_msgs::PercentStamped>* vbs;
+    TopicBuffer<sam_msgs::PercentStamped>* vbs_fb;
     TopicBuffer<sam_msgs::PercentStamped>* lcg;
     TopicBuffer<smarc_msgs::DualThrusterFeedback>* rpms;
+    TopicBuffer<cola2_msgs::DVL>* dvl;
     TopicBuffer<std_msgs::Float64>* depth;
     TopicBuffer<std_msgs::Float64>* pitch;
     TopicBuffer<std_msgs::Float64>* roll;
@@ -85,7 +92,7 @@ private:
     TopicBuffer<sensor_msgs::NavSatFix>* gps;
     TopicBuffer<sensor_msgs::BatteryState>* battery;
     TopicBuffer<nav_msgs::Odometry>* odom;
-    TopicBuffer<sam_msgs::PercentStamped>* vbs;
+    TopicBuffer<sam_msgs::PercentStamped>* vbs_fb;
     TopicBuffer<sam_msgs::PercentStamped>* lcg;
     TopicBuffer<smarc_msgs::DualThrusterFeedback>* rpms;
     TopicBuffer<std_msgs::Float64>* depth;
@@ -111,15 +118,22 @@ private:
     TopicBuffer<uavcan_ros_bridge::UavcanNodeStatusNamedArray>* uavcan;
     TopicBuffer<sam_msgs::ConsumedChargeArray>* charge;
     TopicBuffer<nav_msgs::Odometry>* odom;
-    TopicBuffer<sam_msgs::PercentStamped>* vbs;
+    TopicBuffer<sam_msgs::PercentStamped>* vbs_fb;
+    TopicBuffer<sam_msgs::PercentStamped>* vbs_cmd;
+    TopicBuffer<sensor_msgs::FluidPressure>* vbs_pressure;
     TopicBuffer<sam_msgs::PercentStamped>* lcg;
     TopicBuffer<smarc_msgs::DualThrusterFeedback>* thrusters_fb;
     TopicBuffer<smarc_msgs::DualThrusterRPM>* thrusters_cmd;
+    TopicBuffer<smarc_msgs::CTDFeedback>* ctd;
+    TopicBuffer<cola2_msgs::DVL>* dvl;
+    TopicBuffer<std_msgs::Bool>* dvl_enable_fb;
     TopicBuffer<std_msgs::Float64>* depth;
     TopicBuffer<std_msgs::Float64>* pitch;
     TopicBuffer<std_msgs::Float64>* roll;
     TopicBuffer<std_msgs::Float64>* yaw;
     TopicBuffer<sensor_msgs::Temperature>* motorTemp;
+    TopicBuffer<sensor_msgs::FluidPressure>* motorPressure;
+    TopicBuffer<sbg_driver::SbgEkfEuler>* sbg_euler;
 public:
     void show_window(bool& show_monitor_window, bool guiDebug);
     SamMonitorWidget(roswasm::NodeHandle* nh);

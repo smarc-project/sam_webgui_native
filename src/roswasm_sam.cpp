@@ -260,9 +260,10 @@ SamDashboardWidget::SamDashboardWidget(roswasm::NodeHandle* nh) : was_leak(false
     gps = new TopicBuffer<sensor_msgs::NavSatFix>(nh, "core/gps");
     battery = new TopicBuffer<sensor_msgs::BatteryState>(nh, "core/battery_fb");
     odom = new TopicBuffer<nav_msgs::Odometry>(nh, "dr/odom", 1000);
-    vbs = new TopicBuffer<sam_msgs::PercentStamped>(nh, "core/vbs_fb", 1000);
+    vbs_fb = new TopicBuffer<sam_msgs::PercentStamped>(nh, "core/vbs_fb", 1000);
     lcg = new TopicBuffer<sam_msgs::PercentStamped>(nh, "core/lcg_fb", 1000);
     rpms = new TopicBuffer<smarc_msgs::DualThrusterFeedback>(nh, "core/thrusters_fb", 1000);
+    dvl = new TopicBuffer<cola2_msgs::DVL>(nh, "core/dvl", 1000);
     depth = new TopicBuffer<std_msgs::Float64>(nh, "ctrl/depth_feedback", 1000);
     pitch = new TopicBuffer<std_msgs::Float64>(nh, "ctrl/pitch_feedback", 1000);
     roll = new TopicBuffer<std_msgs::Float64>(nh, "ctrl/roll_feedback", 1000);
@@ -307,7 +308,9 @@ void SamDashboardWidget::show_window(bool& show_dashboard_window)
         ImGui::SameLine(150);
         ImGui::Text("Lon: %.5f", gps->get_msg().longitude);
         ImGui::SameLine(300);
-        ImGui::Text("Depth: %.2fm", depth->get_msg().data);
+        ImGui::Text("Depth: %.2fm,", depth->get_msg().data);
+        ImGui::SameLine();
+        ImGui::Text("Alt: %.1f m", dvl->get_msg().altitude);
     }
 
     if (ImGui::CollapsingHeader("DR translation", ImGuiTreeNodeFlags_Framed | ImGuiTreeNodeFlags_DefaultOpen)) {
@@ -327,7 +330,7 @@ void SamDashboardWidget::show_window(bool& show_dashboard_window)
     }
 
     if (ImGui::CollapsingHeader("Actuator feedback", ImGuiTreeNodeFlags_Framed | ImGuiTreeNodeFlags_DefaultOpen)) {
-        ImGui::Text("VBS pos: %.2f%%", vbs->get_msg().value);
+        ImGui::Text("VBS pos: %.2f%%", vbs_fb->get_msg().value);
         ImGui::SameLine(150);
         ImGui::Text("LCG pos: %.2f%%", lcg->get_msg().value);
         ImGui::SameLine(300);
@@ -343,7 +346,7 @@ SamDashboardWidget2::SamDashboardWidget2(roswasm::NodeHandle* nh) : was_leak(fal
     gps = new TopicBuffer<sensor_msgs::NavSatFix>(nh, "core/gps");
     battery = new TopicBuffer<sensor_msgs::BatteryState>(nh, "core/battery_fb");
     odom = new TopicBuffer<nav_msgs::Odometry>(nh, "dr/odom", 1000);
-    vbs = new TopicBuffer<sam_msgs::PercentStamped>(nh, "core/vbs_fb", 1000);
+    vbs_fb = new TopicBuffer<sam_msgs::PercentStamped>(nh, "core/vbs_fb", 1000);
     lcg = new TopicBuffer<sam_msgs::PercentStamped>(nh, "core/lcg_fb", 1000);
     rpms = new TopicBuffer<smarc_msgs::DualThrusterFeedback>(nh, "core/thrusters_fb", 1000);
     depth = new TopicBuffer<std_msgs::Float64>(nh, "ctrl/depth_feedback", 1000);
@@ -462,7 +465,7 @@ void SamDashboardWidget2::show_window(bool& show_dashboard_window)
         }
 
         if (ImGui::CollapsingHeader("Actuator feedback", ImGuiTreeNodeFlags_Framed | ImGuiTreeNodeFlags_DefaultOpen)) {
-            ImGui::Text("VBS pos: %.2f%%", vbs->get_msg().value);
+            ImGui::Text("VBS pos: %.2f%%", vbs_fb->get_msg().value);
             ImGui::SameLine(150);
             ImGui::Text("LCG pos: %.2f%%", lcg->get_msg().value);
             ImGui::SameLine(300);
@@ -482,15 +485,22 @@ SamMonitorWidget::SamMonitorWidget(roswasm::NodeHandle* nh)
     charge = new TopicBuffer<sam_msgs::ConsumedChargeArray>(nh, "core/consumed_charge_array_fb");
     uavcan = new TopicBuffer<uavcan_ros_bridge::UavcanNodeStatusNamedArray>(nh, "core/uavcan_fb");
     odom = new TopicBuffer<nav_msgs::Odometry>(nh, "dr/odom", 1000);
-    vbs = new TopicBuffer<sam_msgs::PercentStamped>(nh, "core/vbs_fb", 1000);
+    vbs_fb = new TopicBuffer<sam_msgs::PercentStamped>(nh, "core/vbs_fb", 1000);
+    vbs_cmd = new TopicBuffer<sam_msgs::PercentStamped>(nh, "core/vbs_cmd", 1000);
+    vbs_pressure = new TopicBuffer<sensor_msgs::FluidPressure>(nh, "core/vbs_tank_pressure", 1000);
     lcg = new TopicBuffer<sam_msgs::PercentStamped>(nh, "core/lcg_fb", 1000);
     thrusters_fb = new TopicBuffer<smarc_msgs::DualThrusterFeedback>(nh, "core/thrusters_fb", 1000);
     thrusters_cmd = new TopicBuffer<smarc_msgs::DualThrusterRPM>(nh, "core/thrusters_cmd", 1000);
+    ctd = new TopicBuffer<smarc_msgs::CTDFeedback>(nh, "core/ctd_fb", 1000);
+    dvl = new TopicBuffer<cola2_msgs::DVL>(nh, "core/dvl", 1000);
+    dvl_enable_fb = new TopicBuffer<std_msgs::Bool>(nh, "core/dvl_enable", 1000);
     depth = new TopicBuffer<std_msgs::Float64>(nh, "ctrl/depth_feedback", 1000);
     pitch = new TopicBuffer<std_msgs::Float64>(nh, "ctrl/pitch_feedback", 1000);
     roll = new TopicBuffer<std_msgs::Float64>(nh, "ctrl/roll_feedback", 1000);
     yaw = new TopicBuffer<std_msgs::Float64>(nh, "ctrl/yaw_feedback", 1000);
     motorTemp = new TopicBuffer<sensor_msgs::Temperature>(nh, "core/motor_temp", 1000);
+    motorPressure = new TopicBuffer<sensor_msgs::FluidPressure>(nh, "core/motor_oil_pressure", 1000);
+    sbg_euler = new TopicBuffer<sbg_driver::SbgEkfEuler>(nh, "sbg/ekf_euler", 1000);
 }
 
 void SamMonitorWidget::show_window(bool& show_dashboard_window, bool guiDebug)
@@ -498,8 +508,8 @@ void SamMonitorWidget::show_window(bool& show_dashboard_window, bool guiDebug)
     ImGui::SetNextWindowSize(ImVec2(1000, 450), ImGuiCond_FirstUseEver);
     ImGui::Begin("Monitoring dashboard", &show_dashboard_window);
 
-    static int selectedTab = 1;
-    const std::vector<const char*> tabNames{"Electrical", "Driveline", "UAVCAN", "BT", "Comms", "Payloads"};
+    static int selectedTab = 0;
+    const std::vector<const char*> tabNames{"Overview", "Electrical", "UAVCAN", "BT", "Comms", "Payloads"};
     for (int i = 0; i < tabNames.size(); i++)
     {
         if (i > 0) ImGui::SameLine();
@@ -523,7 +533,7 @@ void SamMonitorWidget::show_window(bool& show_dashboard_window, bool guiDebug)
     }
 
     const std::vector<const char*> names{"Setup", "Monitor", "Control", "Service", "Experiments"};
-    if(selectedTab == 0) {
+    if(selectedTab == 1) {
         {
             ImGui::BeginChild("Battery", ImVec2(475, 80), false, 0);
             
@@ -824,98 +834,166 @@ void SamMonitorWidget::show_window(bool& show_dashboard_window, bool guiDebug)
         //     ImGui::Columns(1);
         //     ImGui::EndChild();
         // }
-    } else if(selectedTab == 1) {
+    } else if(selectedTab == 0) {
+        const int subWindowHeight = 205;
         {
-            ImGui::BeginChild("Motors", ImVec2(200, 300), true, 0);
+            // ImVec2 motorWindowPos = ImGui::GetCursorScreenPos();
+            // ImVec2 motorOrigin = ImGui::GetCursorPos();
             
-            ImVec2 motorWindowPos = ImGui::GetCursorScreenPos();
-            ImVec2 motorOrigin = ImGui::GetCursorPos();
-
-            ImGui::Text("Motors");
-            ImGui::Separator();
-            const float rangeBar = 1000.0f;
-
-            const int v_fb = thrusters_fb->get_msg().thruster_front.rpm.rpm;
-            const int v_fb2 = thrusters_fb->get_msg().thruster_back.rpm.rpm;
-            const int v_cmd = thrusters_cmd->get_msg().thruster_front.rpm ? thrusters_cmd->get_msg().thruster_front.rpm : 0;
-            const int v_cmd2 = thrusters_cmd->get_msg().thruster_back.rpm ? thrusters_cmd->get_msg().thruster_back.rpm : 0;
-            
-            // static int v_fb = 0;
-            // ImGui::SliderInt("fb", &v_fb, -1000, 1000);
-            // static int v_cmd = 0;
-            // ImGui::SliderInt("cmd", &v_cmd, -1000, 1000);
-            ImGui::Text("Front %c", "|/-\\"[(int)(ImGui::GetTime() / 0.05f) & 3]);
-            ImGui::Text("Rear %c", "|/-\\"[(int)(ImGui::GetTime() / 0.05f) & 3]);
-            ImGui::SameLine();
-
-            const ImVec2 size = ImVec2(40, 100);
-            // draw_bar_signed(pos, size, v_fb, v_cmd, rangeBar, true);
+            ImGui::BeginChild("Motors", ImVec2(210, subWindowHeight), true, 0);
             {
-                const ImVec2 pos = ImVec2(80, 60);
-
-                const ImVec2 barPos = ImVec2(motorWindowPos.x + pos.x, motorWindowPos.y + pos.y);
-                const bool outOfRange = std::abs(v_fb) > rangeBar ? true : false;
-                const float frac_fb =  (outOfRange) ? (v_fb < 0 ? -1.0f : 1.0f) : v_fb / rangeBar;
-                const float frac_cmd =  (std::abs(v_cmd) > rangeBar) ? (v_cmd < 0 ? -1.0f : 1.0f) : v_cmd / rangeBar;
-
-                // const float frac_fb = v_fb / rangeBar;
-                // const float frac_cmd = v_cmd / rangeBar;
-                const ImVec2 barLength = ImVec2((size.y/2-3)*frac_fb, (size.y/2-3)*frac_cmd);
-                const ImVec2 bar_p1 = ImVec2(barPos.x + 3, barPos.y + size.y/2);
-                const ImVec2 bar_p2 = ImVec2(barPos.x + size.x - 3, barPos.y + size.y/2);
-                if (outOfRange)
-                {
-                    ImGui::GetWindowDrawList()->AddRectFilled(bar_p1, ImVec2(bar_p2.x, bar_p2.y - barLength[0]), IM_COL32(195,0,0,255)); // fill
-                }
-                else
-                {
-                    ImGui::GetWindowDrawList()->AddRectFilled(bar_p1, ImVec2(bar_p2.x, bar_p2.y - barLength[0]), ImGui::GetColorU32(ImGuiCol_PlotHistogram)); // fill
-                }
-                ImGui::GetWindowDrawList()->AddLine(ImVec2(barPos.x + 2, bar_p2.y - barLength[1]), ImVec2(barPos.x + size.x - 2, bar_p2.y - barLength[1]), IM_COL32(255,0,0,255), 3); // line
-                ImGui::GetWindowDrawList()->AddRect(barPos, ImVec2(barPos.x + size.x, barPos.y + size.y), ImGui::GetColorU32(ImGuiCol_FrameBgActive)); // border
-                // ImGui::Dummy(size);
-
-                char label1[10];
-                sprintf(label1, "%d", v_fb);
-                const ImVec2 barLabelPos = ImVec2(motorOrigin.x + pos.x + size.x / 2, motorOrigin.y + pos.y + size.y);
-                ImGui::SetCursorPos(ImVec2(barLabelPos.x - ImGui::CalcTextSize(label1).x / 2, barLabelPos.y));
-                ImGui::Text("%s", label1);
+                ImGui::BeginChild("motorTitle", ImVec2(60, 20), false, 0);
+                ImGui::Text("Motors");
+                ImGui::Separator();
+                ImGui::EndChild();
             }
+            // {
+            //     ImGui::BeginChild("motorMain", ImVec2(300, 130), false, 0);
+                ImVec2 motorWindowPos = ImGui::GetCursorScreenPos();
+                ImVec2 motorOrigin = ImGui::GetCursorPos();
 
-            {
-                const ImVec2 pos2 = ImVec2(130, 60);
+                const float rangeBar = 1000.0f;
 
-                const ImVec2 barPos2 = ImVec2(motorWindowPos.x + pos2.x, motorWindowPos.y + pos2.y);
-                const bool outOfRange2 = std::abs(v_fb2) > rangeBar ? true : false;
-                const float frac_fb2 =  (outOfRange2) ? (v_fb2 < 0 ? -1.0f : 1.0f) : v_fb2 / rangeBar;
-                const float frac_cmd2 =  (std::abs(v_cmd2) > rangeBar) ? (v_cmd2 < 0 ? -1.0f : 1.0f) : v_cmd2 / rangeBar;
+                const int v_fb = thrusters_fb->get_msg().thruster_front.rpm.rpm;
+                const int v_fb2 = thrusters_fb->get_msg().thruster_back.rpm.rpm;
+                const int v_cmd = thrusters_cmd->get_msg().thruster_front.rpm ? thrusters_cmd->get_msg().thruster_front.rpm : 0;
+                const int v_cmd2 = thrusters_cmd->get_msg().thruster_back.rpm ? thrusters_cmd->get_msg().thruster_back.rpm : 0;
+                
+                // static int v_fb = 0;
+                // ImGui::SliderInt("fb", &v_fb, -1000, 1000);
+                // static int v_cmd = 0;
+                // ImGui::SliderInt("cmd", &v_cmd, -1000, 1000);
+                // const int M2Offset = 200;
+                // ImGui::Text("Front %c", "|/-\\"[(int)(ImGui::GetTime() / 0.05f) & 3]); ImGui::SameLine(M2Offset);
+                // ImGui::Text("Rear %c", "|/-\\"[(int)(ImGui::GetTime() / 0.05f) & 3]);
+                // ImGui::Text("Torque"); ImGui::SameLine(M2Offset);
+                ImGui::Text("Pressure");
+                ImGui::Text("%.2f bar", motorPressure->get_msg().fluid_pressure/100000.0f);
+                // ImGui::Text("Torque");
+                // ImGui::Text("%.2f Nm", thrusters_fb->get_msg().thruster_front.torque); ImGui::SameLine(M2Offset);
+                // ImGui::Text("%.2f Nm", thrusters_fb->get_msg().thruster_back.torque);
+                // ImGui::Text("Current"); ImGui::SameLine(M2Offset);
+                // ImGui::Text("Current");
+                // ImGui::Text("%.2f A", thrusters_fb->get_msg().thruster_front.current); ImGui::SameLine(M2Offset);
+                // ImGui::Text("%.2f A", thrusters_fb->get_msg().thruster_back.current);
+                // ImGui::Text("Temp"); ImGui::SameLine(M2Offset);
+                // ImGui::Text("Temp");
+                // ImGui::Text("%.0f °C", motorTemp->get_msg().temperature-273.15); ImGui::SameLine(M2Offset);
+                // ImGui::Text("%.0f °C", motorTemp->get_msg().temperature-273.15);
+                // ImGui::SameLine();
+                const int motorOffset = 100;
 
-                // const float frac_fb2 = v_fb / rangeBar;
-                // const float frac_cmd2 = v_cmd2 / rangeBar;
-                const ImVec2 barLength2 = ImVec2((size.y/2-3)*frac_fb2, (size.y/2-3)*frac_cmd2);
-                const ImVec2 bar_p12 = ImVec2(barPos2.x + 3, barPos2.y + size.y/2);
-                const ImVec2 bar_p22 = ImVec2(barPos2.x + size.x - 3, barPos2.y + size.y/2);
-                if (outOfRange2)
+                const ImVec2 size = ImVec2(40, 100);
+                // draw_bar_signed(pos, size, v_fb, v_cmd, rangeBar, true);
+                const ImVec2 pos = ImVec2(motorOffset, -10);
                 {
-                    ImGui::GetWindowDrawList()->AddRectFilled(bar_p12, ImVec2(bar_p22.x, bar_p22.y - barLength2[0]), IM_COL32(195,0,0,255)); // fill
+                    // const ImVec2 pos = ImVec2(motorOffset, -10);
+
+                    const ImVec2 barPos = ImVec2(motorWindowPos.x + pos.x, motorWindowPos.y + pos.y);
+                    const bool outOfRange = std::abs(v_fb) > rangeBar ? true : false;
+                    const float frac_fb =  (outOfRange) ? (v_fb < 0 ? -1.0f : 1.0f) : v_fb / rangeBar;
+                    const float frac_cmd =  (std::abs(v_cmd) > rangeBar) ? (v_cmd < 0 ? -1.0f : 1.0f) : v_cmd / rangeBar;
+
+                    const ImVec2 barLength = ImVec2((size.y/2-3)*frac_fb, (size.y/2-3)*frac_cmd);
+                    const ImVec2 bar_p1 = ImVec2(barPos.x + 3, barPos.y + size.y/2);
+                    const ImVec2 bar_p2 = ImVec2(barPos.x + size.x - 3, barPos.y + size.y/2);
+                    if (outOfRange)
+                    {
+                        ImGui::GetWindowDrawList()->AddRectFilled(bar_p1, ImVec2(bar_p2.x, bar_p2.y - barLength[0]), IM_COL32(195,0,0,255)); // fill
+                    }
+                    else
+                    {
+                        ImGui::GetWindowDrawList()->AddRectFilled(bar_p1, ImVec2(bar_p2.x, bar_p2.y - barLength[0]), ImGui::GetColorU32(ImGuiCol_PlotHistogram)); // fill
+                    }
+                    ImGui::GetWindowDrawList()->AddLine(ImVec2(barPos.x + 2, bar_p2.y - barLength[1]), ImVec2(barPos.x + size.x - 2, bar_p2.y - barLength[1]), IM_COL32(255,0,0,255), 3); // line
+                    ImGui::GetWindowDrawList()->AddRect(barPos, ImVec2(barPos.x + size.x, barPos.y + size.y), ImGui::GetColorU32(ImGuiCol_FrameBgActive)); // border
+                    // ImGui::Dummy(size);
+
+                    char label1[10];
+                    sprintf(label1, "%d", v_fb);
+                    const ImVec2 barLabelPos = ImVec2(motorOrigin.x + pos.x + size.x / 2, motorOrigin.y + pos.y + size.y);
+                    ImGui::SetCursorPos(ImVec2(barLabelPos.x - ImGui::CalcTextSize(label1).x / 2, barLabelPos.y));
+                    ImGui::Text("%s", label1);
+
+                    const ImVec2 m1LabelPos = ImVec2(motorOrigin.x + pos.x + size.x / 2, motorOrigin.y + pos.y - 15);
+                    ImGui::SetCursorPos(ImVec2(m1LabelPos.x - ImGui::CalcTextSize("Front").x / 2, m1LabelPos.y));
+                    ImGui::Text("Front");
                 }
-                else
+
                 {
-                    ImGui::GetWindowDrawList()->AddRectFilled(bar_p12, ImVec2(bar_p22.x, bar_p22.y - barLength2[0]), ImGui::GetColorU32(ImGuiCol_PlotHistogram)); // fill
+                    const ImVec2 pos2 = ImVec2(motorOffset + 50, -10);
+
+                    const ImVec2 barPos2 = ImVec2(motorWindowPos.x + pos2.x, motorWindowPos.y + pos2.y);
+                    const bool outOfRange2 = std::abs(v_fb2) > rangeBar ? true : false;
+                    const float frac_fb2 =  (outOfRange2) ? (v_fb2 < 0 ? -1.0f : 1.0f) : v_fb2 / rangeBar;
+                    const float frac_cmd2 =  (std::abs(v_cmd2) > rangeBar) ? (v_cmd2 < 0 ? -1.0f : 1.0f) : v_cmd2 / rangeBar;
+
+                    const ImVec2 barLength2 = ImVec2((size.y/2-3)*frac_fb2, (size.y/2-3)*frac_cmd2);
+                    const ImVec2 bar_p12 = ImVec2(barPos2.x + 3, barPos2.y + size.y/2);
+                    const ImVec2 bar_p22 = ImVec2(barPos2.x + size.x - 3, barPos2.y + size.y/2);
+                    if (outOfRange2)
+                    {
+                        ImGui::GetWindowDrawList()->AddRectFilled(bar_p12, ImVec2(bar_p22.x, bar_p22.y - barLength2[0]), IM_COL32(195,0,0,255)); // fill
+                    }
+                    else
+                    {
+                        ImGui::GetWindowDrawList()->AddRectFilled(bar_p12, ImVec2(bar_p22.x, bar_p22.y - barLength2[0]), ImGui::GetColorU32(ImGuiCol_PlotHistogram)); // fill
+                    }
+                    ImGui::GetWindowDrawList()->AddLine(ImVec2(barPos2.x + 2, bar_p22.y - barLength2[1]), ImVec2(barPos2.x + size.x - 2, bar_p22.y - barLength2[1]), IM_COL32(255,0,0,255), 3); // line
+                    ImGui::GetWindowDrawList()->AddRect(barPos2, ImVec2(barPos2.x + size.x, barPos2.y + size.y), ImGui::GetColorU32(ImGuiCol_FrameBgActive)); // border
+                    // ImGui::Dummy(size);
+
+                    char label12[10];
+                    sprintf(label12, "%d", v_fb2);
+                    const ImVec2 barLabelPos2 = ImVec2(motorOrigin.x + pos2.x + size.x / 2, motorOrigin.y + pos2.y + size.y);
+                    ImGui::SetCursorPos(ImVec2(barLabelPos2.x - ImGui::CalcTextSize(label12).x / 2, barLabelPos2.y));
+                    ImGui::Text("%s", label12);
+
+                    const ImVec2 m2LabelPos = ImVec2(motorOrigin.x + pos2.x + size.x / 2, motorOrigin.y + pos2.y - 15);
+                    ImGui::SetCursorPos(ImVec2(m2LabelPos.x - ImGui::CalcTextSize("Back").x / 2, m2LabelPos.y));
+                    ImGui::Text("Back");
                 }
-                ImGui::GetWindowDrawList()->AddLine(ImVec2(barPos2.x + 2, bar_p22.y - barLength2[1]), ImVec2(barPos2.x + size.x - 2, bar_p22.y - barLength2[1]), IM_COL32(255,0,0,255), 3); // line
-                ImGui::GetWindowDrawList()->AddRect(barPos2, ImVec2(barPos2.x + size.x, barPos2.y + size.y), ImGui::GetColorU32(ImGuiCol_FrameBgActive)); // border
-                // ImGui::Dummy(size);
+                {
+                    ImGui::SetCursorPosY(motorOrigin.y + pos.y + size.y + 20);
+                    ImGui::Separator();
+                    ImGui::Columns(3, "motorTable", false);
+                    ImGui::SetColumnWidth(0, motorOffset);
+                    ImGui::SetColumnWidth(1, 54);
+                    // ImGui::SetColumnWidth(2, 50);
 
-                char label12[10];
-                sprintf(label12, "%d", v_fb2);
-                const ImVec2 barLabelPos2 = ImVec2(motorOrigin.x + pos2.x + size.x / 2, motorOrigin.y + pos2.y + size.y);
-                ImGui::SetCursorPos(ImVec2(barLabelPos2.x - ImGui::CalcTextSize(label12).x / 2, barLabelPos2.y));
-                ImGui::Text("%s", label12);
-            }
+                    ImGui::Text("Torque  [Nm]"); ImGui::NextColumn();
+                    char label1[10];
+                    sprintf(label1, "%.2f", thrusters_fb->get_msg().thruster_front.torque);
+                    ImGui::SetCursorPosX(ImGui::GetCursorPosX() + ImGui::GetColumnWidth() - ImGui::CalcTextSize(label1).x - ImGui::GetScrollX() - 2 * ImGui::GetStyle().ItemSpacing.x);
+                    ImGui::Text("%s", label1); ImGui::NextColumn();
+                    // sprintf(label1, "%.2f", thrusters_fb->get_msg().thruster_back.torque);
+                    // ImGui::SetCursorPosX(ImGui::GetCursorPosX() + ImGui::GetColumnWidth() - ImGui::CalcTextSize(label1).x - ImGui::GetScrollX() - 2 * ImGui::GetStyle().ItemSpacing.x);
+                    // ImGui::Text("%s", label1); ImGui::NextColumn();
+                    ImGui::Text("%.2f", thrusters_fb->get_msg().thruster_back.torque); ImGui::NextColumn();
+
+                    ImGui::Text("Current [A]"); ImGui::NextColumn();
+                    sprintf(label1, "%.1f", thrusters_fb->get_msg().thruster_front.current);
+                    ImGui::SetCursorPosX(ImGui::GetCursorPosX() + ImGui::GetColumnWidth() - ImGui::CalcTextSize(label1).x - ImGui::GetScrollX() - 2 * ImGui::GetStyle().ItemSpacing.x);
+                    ImGui::Text("%s", label1); ImGui::NextColumn();
+                    // sprintf(label1, "%.1f", thrusters_fb->get_msg().thruster_back.current);
+                    // ImGui::SetCursorPosX(ImGui::GetCursorPosX() + ImGui::GetColumnWidth() - ImGui::CalcTextSize(label1).x - ImGui::GetScrollX() - 2 * ImGui::GetStyle().ItemSpacing.x);
+                    // ImGui::Text("%s", label1); ImGui::NextColumn();
+                    // ImGui::Text("%.1f", thrusters_fb->get_msg().thruster_front.current); ImGui::NextColumn();
+                    ImGui::Text("%.1f", thrusters_fb->get_msg().thruster_back.current); ImGui::NextColumn();
+
+                    ImGui::Text("Temp    [°C]"); ImGui::NextColumn();
+                    sprintf(label1, "%.0f", motorTemp->get_msg().temperature-273.15);
+                    ImGui::SetCursorPosX(ImGui::GetCursorPosX() + ImGui::GetColumnWidth() - ImGui::CalcTextSize(label1).x - ImGui::GetScrollX() - 2 * ImGui::GetStyle().ItemSpacing.x);
+                    ImGui::Text("%s", label1); ImGui::NextColumn();
+                    // ImGui::SetCursorPosX(ImGui::GetCursorPosX() + ImGui::GetColumnWidth() - ImGui::CalcTextSize(label1).x - ImGui::GetScrollX() - 2 * ImGui::GetStyle().ItemSpacing.x);
+                    // ImGui::Text("%s", label1); ImGui::NextColumn();
+                    // ImGui::Text("%.0f", motorTemp->get_msg().temperature-273.15); ImGui::NextColumn();
+                    ImGui::Text("%.0f", motorTemp->get_msg().temperature-273.15);
+                }
+            // }
 
 
-            ImGui::Text("Motors");
+            // ImGui::Text("Motors");
 
             // std::string text = "1";
             // ImGui::SetCursorPosX(ImGui::GetCursorPosX() + ImGui::GetColumnWidth() - ImGui::CalcTextSize(text.c_str()).x - ImGui::GetScrollX() - 2 * ImGui::GetStyle().ItemSpacing.x);
@@ -950,6 +1028,97 @@ void SamMonitorWidget::show_window(bool& show_dashboard_window, bool guiDebug)
             // // ImGui::Text("UNKNOWN"); ImGui::NextColumn();
             ImGui::EndChild();
         }
+        ImGui::SameLine();
+        {
+            ImGui::BeginChild("CTD", ImVec2(200, subWindowHeight), true, 0);
+
+            ImGui::Text("CTD");
+            ImGui::Separator();
+            ImGui::Text("Conductivity %.2f mS/cm", ctd->get_msg().conductivity);
+            ImGui::Text("Temperature  %.2f °C", ctd->get_msg().temperature);
+            ImGui::Text("Depth        %.2f m", ctd->get_msg().depth);
+            ImGui::EndChild();
+        }
+        ImGui::SameLine();
+        {
+            const int dvlWidth = 200;
+            ImGui::BeginChild("DVL", ImVec2(dvlWidth, subWindowHeight), true, 0);
+
+            std::string status_text;
+            ImVec4 status_color4;
+            char label1[10];
+            if (dvl_enable_fb->get_msg().data) {
+                sprintf(label1, "%s", "Enabled");
+                status_color4 = ImColor(0, 255, 0);
+            }
+            else {
+                sprintf(label1, "%s", "Disabled");
+                status_color4 = ImColor(255, 0, 0);
+            }
+
+            ImGui::Columns(3, "dvlTitle", false);
+            ImGui::SetColumnWidth(0,50);
+            ImGui::SetColumnWidth(1, dvlWidth - 80);
+            ImGui::Text("DVL"); ImGui::NextColumn();
+            ImGui::SetCursorPosX(ImGui::GetCursorPosX() + ImGui::GetColumnWidth() - ImGui::CalcTextSize(label1).x - ImGui::GetScrollX() - 2 * ImGui::GetStyle().ItemSpacing.x);
+            ImGui::Text("%s", label1); ImGui::NextColumn();
+            ImGui::PushID(26);
+            ImGui::PushStyleColor(ImGuiCol_Button, status_color4);
+            ImGui::PushStyleColor(ImGuiCol_ButtonHovered, status_color4);
+            ImGui::PushStyleColor(ImGuiCol_ButtonActive, status_color4);
+            ImGui::Button("", ImVec2(15,15));
+            ImGui::PopStyleColor(3);
+            ImGui::PopID();
+            ImGui::Columns(1);
+            
+            ImGui::Separator();
+
+            ImGui::Text("Velocity [m/s]");
+            ImGui::Text("x %.3f", dvl->get_msg().velocity.x); //ImGui::SameLine(60);
+            ImGui::Text("y %.3f", dvl->get_msg().velocity.y); //ImGui::SameLine(50);
+            ImGui::Text("z %.3f", dvl->get_msg().velocity.z);
+            ImGui::Separator();
+            ImGui::Text("Velocity covariance");
+            ImGui::Text("11: %.3f", dvl->get_msg().velocity_covariance[0]); //ImGui::SameLine(50);
+            ImGui::Text("22: %.3f", dvl->get_msg().velocity_covariance[4]); //ImGui::SameLine(50);
+            ImGui::Text("33: %.3f", dvl->get_msg().velocity_covariance[8]);
+            ImGui::Separator();
+            // ImGui::Text("Velocity covariance");
+            ImGui::Text("Altitude: %.1f m", dvl->get_msg().altitude); ImGui::SameLine(60);
+
+            // ImGui::Button(dvl_enable_fb->get_msg().data, ImVec2(85,20);
+            ImGui::EndChild();
+        }
+        ImGui::SameLine();
+        {
+            ImGui::BeginChild("VBS", ImVec2(130, subWindowHeight), true, 0);
+
+            ImGui::Text("VBS");
+            ImGui::Separator();
+            ImGui::Text("Position: %.1f%%", vbs_fb->get_msg().value);
+            ImGui::Text("Setpoint: %.1f%%", vbs_cmd->get_msg().value);
+            ImGui::Separator();
+            ImGui::Text("Pressure");
+            ImGui::Text("%.2f bar", vbs_pressure->get_msg().fluid_pressure/100000.0f);
+            ImGui::Separator();
+            ImGui::Text("Variance");
+            ImGui::Text("%.2f bar", vbs_pressure->get_msg().variance/100000.0f);
+
+            ImGui::EndChild();
+        }
+        ImGui::SameLine();
+        {
+            ImGui::BeginChild("SBG", ImVec2(110, subWindowHeight), true, 0);
+
+            ImGui::Text("SBG");
+            ImGui::Separator();
+            ImGui::Text("Heading: %.1f°", sbg_euler->get_msg().angle.z * (180.0/3.14));
+            ImGui::Text("Roll:    %.1f°", sbg_euler->get_msg().angle.x * (180.0/3.14));
+            ImGui::Text("Pitch:   %.1f°", sbg_euler->get_msg().angle.y * (180.0/3.14));
+
+            ImGui::EndChild();
+        }
+        
 
         // if (ImGui::CollapsingHeader("GPS and depth", ImGuiTreeNodeFlags_Framed | ImGuiTreeNodeFlags_DefaultOpen)) {
         //     ImGui::Text("Lat: %.5f", gps->get_msg().latitude);
@@ -976,7 +1145,7 @@ void SamMonitorWidget::show_window(bool& show_dashboard_window, bool guiDebug)
         // }
 
         // if (ImGui::CollapsingHeader("Actuator feedback", ImGuiTreeNodeFlags_Framed | ImGuiTreeNodeFlags_DefaultOpen)) {
-        //     ImGui::Text("VBS pos: %.2f%%", vbs->get_msg().value);
+        //     ImGui::Text("VBS pos: %.2f%%", vbs_fb->get_msg().value);
         //     ImGui::SameLine(150);
         //     ImGui::Text("LCG pos: %.2f%%", lcg->get_msg().value);
         //     ImGui::SameLine(300);
