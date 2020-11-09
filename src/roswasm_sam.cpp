@@ -183,7 +183,7 @@ void SamActuatorWidget::pub_callback(const ros::TimerEvent& e)
 
 void SamActuatorWidget::show_window(bool& show_actuator_window)
 {
-    ImGui::SetNextWindowSize(ImVec2(500, 200), ImGuiCond_FirstUseEver);
+    ImGui::SetNextWindowSize(ImVec2(500, 500), ImGuiCond_FirstUseEver);
     ImGui::Begin("Actuator controls", &show_actuator_window);
 
     if (ImGui::CollapsingHeader("Thruster Angles", ImGuiTreeNodeFlags_Framed | ImGuiTreeNodeFlags_DefaultOpen)) {
@@ -257,6 +257,7 @@ void SamActuatorWidget::show_window(bool& show_actuator_window)
 SamDashboardWidget::SamDashboardWidget(roswasm::NodeHandle* nh) : was_leak(false)
 {
     leak = new TopicBuffer<sam_msgs::Leak>(nh, "core/leak_fb");
+    panic = new TopicBuffer<std_msgs::String>(nh, "core/panic_fb");
     gps = new TopicBuffer<sensor_msgs::NavSatFix>(nh, "core/gps");
     battery = new TopicBuffer<sensor_msgs::BatteryState>(nh, "core/battery_fb");
     odom = new TopicBuffer<nav_msgs::Odometry>(nh, "dr/odom", 1000);
@@ -275,6 +276,22 @@ void SamDashboardWidget::show_window(bool& show_dashboard_window)
 {
     ImGui::SetNextWindowSize(ImVec2(500, 243), ImGuiCond_FirstUseEver);
     ImGui::Begin("Status dashboard", &show_dashboard_window);
+    // if (strcmp(panic->get_msg().data.c_str(), "") || was_panic)
+    if (!panic->get_msg().data.empty() || was_panic)
+    {
+        ImGui::PushID(65);
+        char label[64];
+
+        sprintf(label, ">>>>>>>>>> Panic!!!! Reason: %s <<<<<<<<<<", panic->get_msg().data.c_str());
+        ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(1.0f, 0.0f, 0.0f, 1.00f));
+        ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(1.0f, 0.0f, 0.0f, 1.00f));
+        ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(1.0f, 0.0f, 0.0f, 1.00f));
+        ImGui::Button(label, ImVec2(ImGui::GetWindowContentRegionWidth(), 50));
+
+        ImGui::PopStyleColor(3);
+        ImGui::PopID();
+        was_panic = true;
+    }
 
     if (ImGui::CollapsingHeader("Critical Info", ImGuiTreeNodeFlags_Framed | ImGuiTreeNodeFlags_DefaultOpen)) {
         was_leak = was_leak || leak->get_msg().value;
@@ -502,6 +519,8 @@ SamMonitorWidget::SamMonitorWidget(roswasm::NodeHandle* nh)
     motorTemp = new TopicBuffer<sensor_msgs::Temperature>(nh, "core/motor_temp", 1000);
     motorPressure = new TopicBuffer<sensor_msgs::FluidPressure>(nh, "core/motor_oil_pressure", 1000);
     sbg_euler = new TopicBuffer<sbg_driver::SbgEkfEuler>(nh, "sbg/ekf_euler", 1000);
+    log = new TopicBuffer<rosgraph_msgs::Log>(nh, "/rosout_agg", 1000);
+    subLog = nh->subscribe<rosgraph_msgs::Log>("/rosout_agg", std::bind(&SamMonitorWidget::callbackLog, this, std::placeholders::_1), 10);
 }
 
 void SamMonitorWidget::show_window(bool& show_dashboard_window, bool guiDebug)
@@ -1123,38 +1142,90 @@ void SamMonitorWidget::show_window(bool& show_dashboard_window, bool guiDebug)
             ImGui::EndChild();
         }
         
+    } else if(selectedTab == 3) {
+        {
+            ImGui::BeginChild("btLog", ImVec2(600, 200), true, 0);
 
-        // if (ImGui::CollapsingHeader("GPS and depth", ImGuiTreeNodeFlags_Framed | ImGuiTreeNodeFlags_DefaultOpen)) {
-        //     ImGui::Text("Lat: %.5f", gps->get_msg().latitude);
-        //     ImGui::SameLine(150);
-        //     ImGui::Text("Lon: %.5f", gps->get_msg().longitude);
-        //     ImGui::SameLine(300);
-        //     ImGui::Text("Depth: %.2fm", depth->get_msg().data);
-        // }
+            ImGui::Text("Log");
+            if(guiDebug)
+            {
+                ImGui::SameLine(); ImGui::Text("List size: %lu", btLogList.size());
+            }
+        
+            ImGui::Separator();
+            // const int listLimit = 5;
 
-        // if (ImGui::CollapsingHeader("DR translation", ImGuiTreeNodeFlags_Framed | ImGuiTreeNodeFlags_DefaultOpen)) {
-        //     ImGui::Text("X: %.2fm", odom->get_msg().pose.pose.position.x);
-        //     ImGui::SameLine(150);
-        //     ImGui::Text("Y: %.2fm", odom->get_msg().pose.pose.position.y);
-        //     ImGui::SameLine(300);
-        //     ImGui::Text("Z: %.2fm", odom->get_msg().pose.pose.position.z);
-        // }
+            // const bool aboutBT = strcmp(log->get_msg().name.c_str(), "/sam/sam_bt") == 0 ? true : false;
+            // if(aboutBT)
+            // {
+            //     btLogList.push_front(log->get_msg());
+            //     const int listOversize = btLogList.size() - listLimit;
+            //     for(int i = 0; i < listOversize; i++)
+            //     {
+            //         btLogList.pop_back();
+            //     }
+            //     // ImGui::Text("%s", log->get_msg().msg.c_str());
+            // }
 
-        // if (ImGui::CollapsingHeader("DR rotation", ImGuiTreeNodeFlags_Framed | ImGuiTreeNodeFlags_DefaultOpen)) {
-        //     ImGui::Text("Roll: %.2fdeg", 180./M_PI*roll->get_msg().data);
-        //     ImGui::SameLine(150);
-        //     ImGui::Text("Pitch: %.2fdeg", 180./M_PI*pitch->get_msg().data);
-        //     ImGui::SameLine(300);
-        //     ImGui::Text("Yaw: %.2fdeg", 180./M_PI*yaw->get_msg().data);
-        // }
+            
+            {
+                ImGui::Columns(2, "btLogList");
+                ImGui::Separator();
 
-        // if (ImGui::CollapsingHeader("Actuator feedback", ImGuiTreeNodeFlags_Framed | ImGuiTreeNodeFlags_DefaultOpen)) {
-        //     ImGui::Text("VBS pos: %.2f%%", vbs_fb->get_msg().value);
-        //     ImGui::SameLine(150);
-        //     ImGui::Text("LCG pos: %.2f%%", lcg->get_msg().value);
-        //     ImGui::SameLine(300);
-        //     ImGui::Text("RPMs: F %d, B %d rpm", thrusters_fb->get_msg().thruster_front.rpm.rpm, thrusters_fb->get_msg().thruster_back.rpm.rpm);
-        // }
+                ImGui::SetColumnWidth(0, 100); ImGui::Text("Function"); ImGui::NextColumn();
+                ImGui::SetColumnWidth(1, 400); ImGui::Text("Message"); ImGui::NextColumn();
+
+                ImGui::Separator();
+
+
+                static std::list<rosgraph_msgs::Log>::iterator selectedLog;
+                // static int selectedLog = -1;
+                for (auto msgIt = btLogList.begin(); msgIt != btLogList.end(); msgIt++)
+                {
+                    char logLabel[32];
+                    sprintf(logLabel, "%s", msgIt->function.c_str());
+                    if (ImGui::Selectable(logLabel, selectedLog == msgIt, ImGuiSelectableFlags_SpanAllColumns))
+                    {
+                        selectedLog = msgIt;
+                    }
+                    ImGui::NextColumn();
+                    ImGui::Text("%s", msgIt->msg.c_str()); ImGui::NextColumn();
+                    // if (circuitNames.find(id) != circuitNames.end())
+                    // {
+                    //     ImGui::Text("%s", circuitNames[id]);
+                    // }
+                    // else
+                    // {
+                    //     ImGui::Text("-");
+                    // }
+                    // ImGui::NextColumn();
+                    // ImGui::Text("%.2f", voltage); ImGui::NextColumn();
+                    // ImGui::Text("%.3f", current); ImGui::NextColumn();
+                    // ImGui::Text("%.2f", power); ImGui::NextColumn();
+                    // ImGui::Text("%d", circuit->get_msg().array[i].circuit.error_flags); ImGui::NextColumn();
+                    // if (circuitCharges.find(id) != circuitCharges.end())
+                    // {
+                    //     ImGui::Text("%.4f", circuitCharges[id]);
+                    // }
+                    // else
+                    // {
+                    //     ImGui::Text("-");
+                    // }
+                    // ImGui::NextColumn();
+                }
+            }
+            ImGui::EndChild();
+        }
+        {
+            ImGui::BeginChild("btLogUnfiltered", ImVec2(600, 200), true, 0);
+
+            ImGui::Text("Log unfiltered");
+            ImGui::Separator();
+            ImGui::Text(">>%s<<", log->get_msg().name.c_str());
+            ImGui::Text("%s", log->get_msg().msg.c_str());
+
+            ImGui::EndChild();
+        }
     }
 
     ImGui::End();
@@ -1163,15 +1234,35 @@ void SamMonitorWidget::callbackCharge(const sam_msgs::ConsumedChargeArray& msg)
 {
     for (int i = 0; i < msg.array.size(); i++)
     {
-        circuitCharges[msg.array[i].circuit_id] = msg.array[i].charge/1000.0;
+        circuitCharges[msg.array[i].circuit_id] = msg.array[i].charge;
     }
+}
+void SamMonitorWidget::callbackLog(const rosgraph_msgs::Log& msg)
+{
+    const int btListLimit = 5;
+
+    const bool aboutBT = strcmp(msg.name.c_str(), "/sam/sam_bt") == 0 ? true : false;
+    if(aboutBT)
+    {
+        btLogList.push_front(msg);
+        const int btListOversize = btLogList.size() - btListLimit;
+        for(int i = 0; i < btListOversize; i++)
+        {
+            btLogList.pop_back();
+        }
+        // ImGui::Text("%s", msg.msg.c_str());
+    }
+    // for (int i = 0; i < msg.array.size(); i++)
+    // {
+    //     circuitCharges[msg.array[i].circuit_id] = msg.array[i].charge/1000.0;
+    // }
 }
 std::pair<ImVec4, const char*> healthToColoredString(const std::uint8_t health)
 {
     static const std::unordered_map<std::uint8_t, std::pair<ImVec4, const char*>> map
     {
-        { 0, { ImColor(0, 255, 0),   "OK" }},       // Green
-        { 1, { ImColor(235, 149, 0), "WARNING" }},  // Orange
+        { 0, { ImVec4(0.0f, 0.71f, 0.06f, 1.00f),   "OK" }},       // Green (dirty)
+        { 1, { ImVec4(0.87f, 0.57f, 0.0f, 1.00f), "WARNING" }},  // Orange
         { 2, { ImColor(235, 0, 211), "ERROR" }},    // Magenta
         { 3, { ImColor(255, 0, 0),   "CRITICAL" }}  // Red
     };
@@ -1189,9 +1280,9 @@ std::pair<ImVec4, const char*> modeToColoredString(const std::uint8_t mode)
 {
     static const std::unordered_map<std::uint8_t, std::pair<ImVec4, const char*>> map
     {
-        { 0, { ImColor(0, 255, 0),   "OPERATIONAL" }},      // Green
+        { 0, { ImVec4(0.0f, 0.71f, 0.06f, 1.00f),   "OPERATIONAL" }},      // Green (dirty)
         { 1, { ImColor(0, 255, 255), "INITIALIZATION" }},   // Cyan
-        { 1, { ImColor(235, 149, 0), "MAINTENANCE" }},      // Orange
+        { 1, { ImVec4(0.87f, 0.57f, 0.0f, 1.00f), "MAINTENANCE" }},      // Orange
         { 2, { ImColor(235, 0, 211), "SOFTWARE_UPDATE" }},  // Magenta
         { 3, { ImColor(255, 0, 0),   "OFFLINE" }}           // Red
     };

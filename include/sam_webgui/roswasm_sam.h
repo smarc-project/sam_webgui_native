@@ -3,6 +3,10 @@
 
 #include <roswasm_webgui/roswasm_widget.h>
 
+#include <rosgraph_msgs/Log.h>
+
+#include <std_msgs/String.h>
+
 #include <sensor_msgs/NavSatFix.h>
 #include <sensor_msgs/BatteryState.h>
 #include <sensor_msgs/Temperature.h>
@@ -27,6 +31,8 @@
 #include <cola2_msgs/DVL.h>
 
 #include <sbg_driver/SbgEkfEuler.h>
+
+#include <list>
 
 namespace roswasm_webgui {
 
@@ -65,8 +71,9 @@ public:
 
 class SamDashboardWidget {
 private:
-    bool was_leak;
+    bool was_leak, was_panic = false;
     TopicBuffer<sam_msgs::Leak>* leak;
+    TopicBuffer<std_msgs::String>* panic;
     TopicBuffer<sensor_msgs::NavSatFix>* gps;
     TopicBuffer<sensor_msgs::BatteryState>* battery;
     TopicBuffer<nav_msgs::Odometry>* odom;
@@ -80,7 +87,7 @@ private:
     TopicBuffer<std_msgs::Float64>* yaw;
     TopicBuffer<sensor_msgs::Temperature>* motorTemp;
 public:
-    bool is_emergency() { return was_leak; }
+    bool is_emergency() { return was_leak || was_panic; }
     void show_window(bool& show_dashboard_window);
     SamDashboardWidget(roswasm::NodeHandle* nh);
 };
@@ -114,6 +121,9 @@ private:
     roswasm::Subscriber* subCharge;
     void callbackCharge(const sam_msgs::ConsumedChargeArray& msg);
     std::unordered_map<int, float> circuitCharges;
+    std::list<rosgraph_msgs::Log> btLogList;
+    roswasm::Subscriber* subLog;
+    void callbackLog(const rosgraph_msgs::Log& msg);
     // TopicBuffer<sam_msgs::ConsumedChargeFeedback>* charge;
     TopicBuffer<uavcan_ros_bridge::UavcanNodeStatusNamedArray>* uavcan;
     TopicBuffer<sam_msgs::ConsumedChargeArray>* charge;
@@ -135,6 +145,7 @@ private:
     TopicBuffer<sensor_msgs::Temperature>* motorTemp;
     TopicBuffer<sensor_msgs::FluidPressure>* motorPressure;
     TopicBuffer<sbg_driver::SbgEkfEuler>* sbg_euler;
+    TopicBuffer<rosgraph_msgs::Log>* log;
 public:
     void show_window(bool& show_monitor_window, bool guiDebug);
     SamMonitorWidget(roswasm::NodeHandle* nh);

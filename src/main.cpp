@@ -69,6 +69,17 @@ bool dark_mode = true;
 bool emergency = false;
 bool guiDebug = false;
 bool nodeCrashed = false;
+bool publishPanic = false;
+
+// roswasm::Publisher* panic_pub;
+// roswasm::Timer* panic_pub_timer;
+
+// void pub_panic_callback(const ros::TimerEvent& e)
+// {
+//   std_msgs::String msg;
+//   msg.data = "ROS_GUI";
+//   panic_pub->publish(msg);
+// }
 
 // Forward declarations
 int drawTabs(int _guiMode, const std::map<int, const char*> _modeMap);
@@ -87,6 +98,12 @@ EM_JS(void, resizeCanvas, (), {
 
 void loop()
 {
+  // if (publishPanic && panic_pub_timer == nullptr) {
+  //   // panic_pub_timer = new roswasm::Timer(0.08, std::bind(&pub_panic_callback, std::placeholders::_1));
+  //   panic_pub_timer = new roswasm::Timer(0.08, pub_panic_callback);
+  //   // panic_pub_timer = new roswasm::Timer(0.08, std::bind(&pub_panic_callback, this, std::placeholders::_1));
+  // }
+
   int width = canvas_get_width();
   int height = canvas_get_height();
 
@@ -312,6 +329,22 @@ void loop()
       }
     }
 
+    ImGui::PushID(23);
+    ImGui::PushStyleColor(ImGuiCol_Button, warning_color);
+    ImGui::PushStyleColor(ImGuiCol_ButtonHovered, warning_color);
+    ImGui::PushStyleColor(ImGuiCol_ButtonActive, warning_color);
+    // if(ImGui::Button("Abort!", ImVec2(50,40)))
+    // {
+    //   publishPanic = true;
+    //   std_msgs::String msg;
+    //   msg.data = "ROS_GUI";
+    //   panic_pub->publish(msg);
+    // }
+    ImGui::PopStyleColor(3);
+    ImGui::PopID();
+    ImGui::SameLine();
+    ImGui::Text("%d", publishPanic);
+
     if(guiDebug)
     {
       ImGui::ColorEdit3("Background", (float*)&clear_color); // Edit 3 floats representing a color
@@ -371,7 +404,7 @@ void loop()
   }
 
   if (show_actuator_window) {
-      ImGui::SetNextWindowPos(ImVec2(winWindth1+2*winSpacing, 500), ImGuiCond_FirstUseEver);
+      ImGui::SetNextWindowPos(ImVec2(winWindth1+2*winSpacing, 290), ImGuiCond_FirstUseEver);
       actuator_widget->show_window(show_actuator_window);
   }
 
@@ -508,6 +541,8 @@ int init()
 
   resizeCanvas();
 
+  // panic_pub = nh->advertise<std_msgs::String>("core/panic_cmd");
+
   return 0;
 }
 
@@ -538,6 +573,7 @@ extern "C" int main(int argc, char** argv)
   dashboard_widget2 = new roswasm_webgui::SamDashboardWidget2(nh);
   teleop_widget = new roswasm_webgui::SamTeleopWidget(nh);
   monitor_widget = new roswasm_webgui::SamMonitorWidget(nh);
+  // panic_pub = nh->advertise<std_msgs::String>("core/panic_cmd");
 
   #ifdef __EMSCRIPTEN__
   emscripten_set_main_loop(loop, 20, 1);
