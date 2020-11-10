@@ -2,6 +2,8 @@
 #define ROSWASM_SAM_H
 
 #include <roswasm_webgui/roswasm_widget.h>
+#include <roswasm_webgui/imgui/imgui.h>
+#include <roswasm_webgui/imgui/imgui_internal.h>
 
 #include <rosgraph_msgs/Log.h>
 
@@ -33,6 +35,7 @@
 #include <sbg_driver/SbgEkfEuler.h>
 
 #include <list>
+#include <chrono>
 
 namespace roswasm_webgui {
 
@@ -86,6 +89,7 @@ private:
     TopicBuffer<std_msgs::Float64>* roll;
     TopicBuffer<std_msgs::Float64>* yaw;
     TopicBuffer<sensor_msgs::Temperature>* motorTemp;
+    const ImVec4 emergency_color = ImVec4(1.0f, 0.0f, 0.0f, 1.00f);
 public:
     bool is_emergency() { return was_leak || was_panic; }
     void show_window(bool& show_dashboard_window);
@@ -137,7 +141,6 @@ private:
     TopicBuffer<smarc_msgs::DualThrusterRPM>* thrusters_cmd;
     TopicBuffer<smarc_msgs::CTDFeedback>* ctd;
     TopicBuffer<cola2_msgs::DVL>* dvl;
-    TopicBuffer<std_msgs::Bool>* dvl_enable_fb;
     TopicBuffer<std_msgs::Float64>* depth;
     TopicBuffer<std_msgs::Float64>* pitch;
     TopicBuffer<std_msgs::Float64>* roll;
@@ -146,6 +149,13 @@ private:
     TopicBuffer<sensor_msgs::FluidPressure>* motorPressure;
     TopicBuffer<sbg_driver::SbgEkfEuler>* sbg_euler;
     TopicBuffer<rosgraph_msgs::Log>* log;
+    const ImVec4 emergency_color = ImVec4(1.0f, 0.0f, 0.0f, 1.00f);
+    ImVec4 warning_color = ImVec4(0.87f, 0.57f, 0.0f, 1.00f);
+    ImVec4 good_color = ImVec4(0.0f, 0.71f, 0.06f, 1.00f);
+
+    // std::pair<ImVec4, const char*> healthToColoredString(const std::uint8_t health);
+    // std::pair<ImVec4, const char*> modeToColoredString(const std::uint8_t mode);
+    // std::pair<ImVec4, const char*> circuitModeToColoredString(const std::uint8_t mode);
 public:
     void show_window(bool& show_monitor_window, bool guiDebug);
     SamMonitorWidget(roswasm::NodeHandle* nh);

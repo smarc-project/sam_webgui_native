@@ -329,21 +329,21 @@ void loop()
       }
     }
 
-    ImGui::PushID(23);
-    ImGui::PushStyleColor(ImGuiCol_Button, warning_color);
-    ImGui::PushStyleColor(ImGuiCol_ButtonHovered, warning_color);
-    ImGui::PushStyleColor(ImGuiCol_ButtonActive, warning_color);
-    // if(ImGui::Button("Abort!", ImVec2(50,40)))
-    // {
-    //   publishPanic = true;
-    //   std_msgs::String msg;
-    //   msg.data = "ROS_GUI";
-    //   panic_pub->publish(msg);
-    // }
-    ImGui::PopStyleColor(3);
-    ImGui::PopID();
-    ImGui::SameLine();
-    ImGui::Text("%d", publishPanic);
+    // ImGui::PushID(23);
+    // ImGui::PushStyleColor(ImGuiCol_Button, warning_color);
+    // ImGui::PushStyleColor(ImGuiCol_ButtonHovered, warning_color);
+    // ImGui::PushStyleColor(ImGuiCol_ButtonActive, warning_color);
+    // // if(ImGui::Button("Abort!", ImVec2(50,40)))
+    // // {
+    // //   publishPanic = true;
+    // //   std_msgs::String msg;
+    // //   msg.data = "ROS_GUI";
+    // //   panic_pub->publish(msg);
+    // // }
+    // ImGui::PopStyleColor(3);
+    // ImGui::PopID();
+    // ImGui::SameLine();
+    // ImGui::Text("%d", publishPanic);
 
     if(guiDebug)
     {

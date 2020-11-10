@@ -283,9 +283,9 @@ void SamDashboardWidget::show_window(bool& show_dashboard_window)
         char label[64];
 
         sprintf(label, ">>>>>>>>>> Panic!!!! Reason: %s <<<<<<<<<<", panic->get_msg().data.c_str());
-        ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(1.0f, 0.0f, 0.0f, 1.00f));
-        ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(1.0f, 0.0f, 0.0f, 1.00f));
-        ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(1.0f, 0.0f, 0.0f, 1.00f));
+        ImGui::PushStyleColor(ImGuiCol_Button, emergency_color);
+        ImGui::PushStyleColor(ImGuiCol_ButtonHovered, emergency_color);
+        ImGui::PushStyleColor(ImGuiCol_ButtonActive, emergency_color);
         ImGui::Button(label, ImVec2(ImGui::GetWindowContentRegionWidth(), 50));
 
         ImGui::PopStyleColor(3);
@@ -511,7 +511,6 @@ SamMonitorWidget::SamMonitorWidget(roswasm::NodeHandle* nh)
     thrusters_cmd = new TopicBuffer<smarc_msgs::DualThrusterRPM>(nh, "core/thrusters_cmd", 1000);
     ctd = new TopicBuffer<smarc_msgs::CTDFeedback>(nh, "core/ctd_fb", 1000);
     dvl = new TopicBuffer<cola2_msgs::DVL>(nh, "core/dvl", 1000);
-    dvl_enable_fb = new TopicBuffer<std_msgs::Bool>(nh, "core/dvl_enable", 1000);
     depth = new TopicBuffer<std_msgs::Float64>(nh, "ctrl/depth_feedback", 1000);
     pitch = new TopicBuffer<std_msgs::Float64>(nh, "ctrl/pitch_feedback", 1000);
     roll = new TopicBuffer<std_msgs::Float64>(nh, "ctrl/roll_feedback", 1000);
@@ -527,6 +526,10 @@ void SamMonitorWidget::show_window(bool& show_dashboard_window, bool guiDebug)
 {
     ImGui::SetNextWindowSize(ImVec2(1000, 450), ImGuiCond_FirstUseEver);
     ImGui::Begin("Monitoring dashboard", &show_dashboard_window);
+
+    std::chrono::system_clock::time_point tp = std::chrono::system_clock::now();
+    std::chrono::system_clock::duration dtn = tp.time_since_epoch();
+    uint32_t current_time_epoch = dtn.count() * std::chrono::system_clock::period::num / std::chrono::system_clock::period::den;
 
     static int selectedTab = 0;
     const std::vector<const char*> tabNames{"Overview", "Electrical", "UAVCAN", "BT", "Comms", "Payloads"};
@@ -550,6 +553,7 @@ void SamMonitorWidget::show_window(bool& show_dashboard_window, bool guiDebug)
     if(guiDebug)
     {
         ImGui::Text("Choosen tab: %d", selectedTab);
+        ImGui::Text("%u", current_time_epoch);
     }
 
     const std::vector<const char*> names{"Setup", "Monitor", "Control", "Service", "Experiments"};
@@ -588,7 +592,7 @@ void SamMonitorWidget::show_window(bool& show_dashboard_window, bool guiDebug)
             ImGui::EndChild();
         }
         ImGui::Columns(2, "rail_split", false);
-        ImGui::SetColumnWidth(0, 535);
+        ImGui::SetColumnWidth(0, 545);
         {
             ImGui::BeginChild("RailsL", ImVec2(0, 200), false, 0);
 
@@ -610,13 +614,13 @@ void SamMonitorWidget::show_window(bool& show_dashboard_window, bool guiDebug)
             int sizzy = circuit->get_msg().array.size();
             ImGui::Text("Power rails");
             const std::vector<std::pair<int, const char*>> circuitColumns{
-                {30,"ID"},
-                {70,"Rail"},
-                {90,"Voltage [V]"},
-                {90,"Current [A]"},
-                {75,"Power [W]"},
-                {70,"Status"},
-                {100,"Consumed [Ah]"},
+                {30, "ID"},
+                {45, "Rail"},
+                {90, "Voltage [V]"},
+                {90, "Current [A]"},
+                {75, "Power [W]"},
+                {100, "Status"},
+                {100, "Consumed [Ah]"},
             };
             ImGui::Columns(circuitColumns.size(), "circuitTable");
             ImGui::Separator();
@@ -627,6 +631,8 @@ void SamMonitorWidget::show_window(bool& show_dashboard_window, bool guiDebug)
             }
             ImGui::Separator();
 
+            std::pair<ImVec4, const char*> circuitModeToColoredString(const std::uint8_t mode);
+
             static int selectedRail = -1;
             for (int i = 0; i < circuit->get_msg().array.size(); i++)
             {
@@ -634,6 +640,7 @@ void SamMonitorWidget::show_window(bool& show_dashboard_window, bool guiDebug)
                 const float voltage = circuit->get_msg().array[i].circuit.voltage;
                 const float current = circuit->get_msg().array[i].circuit.current;
                 const float power = voltage*current;
+                const std::pair<ImVec4, const char*> _mode = circuitModeToColoredString(circuit->get_msg().array[i].circuit.error_flags);
                 char label[32];
                 sprintf(label, "%d", id);
                 if (ImGui::Selectable(label, selectedRail == id, ImGuiSelectableFlags_SpanAllColumns))
@@ -653,7 +660,8 @@ void SamMonitorWidget::show_window(bool& show_dashboard_window, bool guiDebug)
                 ImGui::Text("%.2f", voltage); ImGui::NextColumn();
                 ImGui::Text("%.3f", current); ImGui::NextColumn();
                 ImGui::Text("%.2f", power); ImGui::NextColumn();
-                ImGui::Text("%d", circuit->get_msg().array[i].circuit.error_flags); ImGui::NextColumn();
+                // ImGui::Text("%d", circuit->get_msg().array[i].circuit.error_flags); ImGui::NextColumn();
+                ImGui::TextColored(_mode.first, "%s", _mode.second); ImGui::NextColumn();
                 if (circuitCharges.find(id) != circuitCharges.end())
                 {
                     ImGui::Text("%.4f", circuitCharges[id]);
@@ -860,13 +868,18 @@ void SamMonitorWidget::show_window(bool& show_dashboard_window, bool guiDebug)
             // ImVec2 motorWindowPos = ImGui::GetCursorScreenPos();
             // ImVec2 motorOrigin = ImGui::GetCursorPos();
             
+            // ImGui::PushStyleColor(ImGuiCol_ChildBg, warning_color);
             ImGui::BeginChild("Motors", ImVec2(210, subWindowHeight), true, 0);
+            // ImGui::PopStyleColor(1);
             {
                 ImGui::BeginChild("motorTitle", ImVec2(60, 20), false, 0);
                 ImGui::Text("Motors");
                 ImGui::Separator();
                 ImGui::EndChild();
             }
+            // ImGui::PushID(456);
+            // ImGui::PopStyleColor(1);
+            // ImGui::PopID();
             // {
             //     ImGui::BeginChild("motorMain", ImVec2(300, 130), false, 0);
                 ImVec2 motorWindowPos = ImGui::GetCursorScreenPos();
@@ -874,8 +887,11 @@ void SamMonitorWidget::show_window(bool& show_dashboard_window, bool guiDebug)
 
                 const float rangeBar = 1000.0f;
 
-                const int v_fb = thrusters_fb->get_msg().thruster_front.rpm.rpm;
-                const int v_fb2 = thrusters_fb->get_msg().thruster_back.rpm.rpm;
+                const uint32_t motorMsgAgeThresh = 3;
+                const bool motorMsgOld = motorMsgAgeThresh < current_time_epoch-thrusters_fb->get_msg().thruster_front.header.stamp.sec ? true : false;
+                const int v_fb = motorMsgOld ? 0 : thrusters_fb->get_msg().thruster_front.rpm.rpm;
+                const int v_fb2 = motorMsgOld ? 0 : thrusters_fb->get_msg().thruster_back.rpm.rpm;
+
                 const int v_cmd = thrusters_cmd->get_msg().thruster_front.rpm ? thrusters_cmd->get_msg().thruster_front.rpm : 0;
                 const int v_cmd2 = thrusters_cmd->get_msg().thruster_back.rpm ? thrusters_cmd->get_msg().thruster_back.rpm : 0;
                 
@@ -1009,8 +1025,12 @@ void SamMonitorWidget::show_window(bool& show_dashboard_window, bool guiDebug)
                     // ImGui::Text("%s", label1); ImGui::NextColumn();
                     // ImGui::Text("%.0f", motorTemp->get_msg().temperature-273.15); ImGui::NextColumn();
                     ImGui::Text("%.0f", motorTemp->get_msg().temperature-273.15);
+                    ImGui::Columns(1);
                 }
             // }
+            // ImGui::Text("System: %u", current_time_epoch);
+            // ImGui::Text("Stamp:  %u", thrusters_fb->get_msg().thruster_front.header.stamp.sec);
+            // ImGui::Text("diff:   %u", current_time_epoch-thrusters_fb->get_msg().thruster_front.header.stamp.sec);
 
 
             // ImGui::Text("Motors");
@@ -1050,9 +1070,41 @@ void SamMonitorWidget::show_window(bool& show_dashboard_window, bool guiDebug)
         }
         ImGui::SameLine();
         {
-            ImGui::BeginChild("CTD", ImVec2(200, subWindowHeight), true, 0);
+            const int ctdWidth = 200;
+            ImGui::BeginChild("CTD", ImVec2(ctdWidth, subWindowHeight), true, 0);
 
-            ImGui::Text("CTD");
+            const uint32_t ctdMsgAgeThresh = 3;
+            const bool ctdMsgOld = ctdMsgAgeThresh < current_time_epoch-ctd->get_msg().header.stamp.sec ? true : false;
+            std::string status_text;
+            ImVec4 status_color4;
+            char label1[10];
+            if (ctdMsgOld)
+            {
+                sprintf(label1, "%s", "Inactive");
+                status_color4 = warning_color;
+            }
+            else
+            {
+                sprintf(label1, "%s", "Active");
+                status_color4 = good_color;
+            }
+
+            ImGui::Columns(3, "ctdTitle", false);
+            ImGui::SetColumnWidth(0,50);
+            ImGui::SetColumnWidth(1, ctdWidth - 80);
+            ImGui::Text("CTD"); ImGui::NextColumn();
+            ImGui::SetCursorPosX(ImGui::GetCursorPosX() + ImGui::GetColumnWidth() - ImGui::CalcTextSize(label1).x - ImGui::GetScrollX() - 2 * ImGui::GetStyle().ItemSpacing.x);
+            ImGui::Text("%s", label1); ImGui::NextColumn();
+            ImGui::PushID(26);
+            ImGui::PushStyleColor(ImGuiCol_Button, status_color4);
+            ImGui::PushStyleColor(ImGuiCol_ButtonHovered, status_color4);
+            ImGui::PushStyleColor(ImGuiCol_ButtonActive, status_color4);
+            ImGui::Button("", ImVec2(15,15));
+            ImGui::PopStyleColor(3);
+            ImGui::PopID();
+            ImGui::Columns(1);
+
+            // ImGui::Text("CTD");
             ImGui::Separator();
             ImGui::Text("Conductivity %.2f mS/cm", ctd->get_msg().conductivity);
             ImGui::Text("Temperature  %.2f °C", ctd->get_msg().temperature);
@@ -1064,16 +1116,20 @@ void SamMonitorWidget::show_window(bool& show_dashboard_window, bool guiDebug)
             const int dvlWidth = 200;
             ImGui::BeginChild("DVL", ImVec2(dvlWidth, subWindowHeight), true, 0);
 
+            const uint32_t dvlMsgAgeThresh = 3;
+            const bool dvlMsgOld = dvlMsgAgeThresh < current_time_epoch-dvl->get_msg().header.stamp.sec ? true : false;
             std::string status_text;
             ImVec4 status_color4;
             char label1[10];
-            if (dvl_enable_fb->get_msg().data) {
-                sprintf(label1, "%s", "Enabled");
-                status_color4 = ImColor(0, 255, 0);
+            if (dvlMsgOld)
+            {
+                sprintf(label1, "%s", "Inactive");
+                status_color4 = warning_color;
             }
-            else {
-                sprintf(label1, "%s", "Disabled");
-                status_color4 = ImColor(255, 0, 0);
+            else
+            {
+                sprintf(label1, "%s", "Active");
+                status_color4 = good_color;
             }
 
             ImGui::Columns(3, "dvlTitle", false);
@@ -1106,14 +1162,44 @@ void SamMonitorWidget::show_window(bool& show_dashboard_window, bool guiDebug)
             // ImGui::Text("Velocity covariance");
             ImGui::Text("Altitude: %.1f m", dvl->get_msg().altitude); ImGui::SameLine(60);
 
-            // ImGui::Button(dvl_enable_fb->get_msg().data, ImVec2(85,20);
             ImGui::EndChild();
         }
         ImGui::SameLine();
         {
-            ImGui::BeginChild("VBS", ImVec2(130, subWindowHeight), true, 0);
+            const int vbsWidth = 140;
+            ImGui::BeginChild("VBS", ImVec2(vbsWidth, subWindowHeight), true, 0);
 
-            ImGui::Text("VBS");
+            const uint32_t vbsMsgAgeThresh = 3;
+            const bool vbsMsgOld = vbsMsgAgeThresh < current_time_epoch-vbs_fb->get_msg().header.stamp.sec ? true : false;
+            std::string status_text;
+            ImVec4 status_color4;
+            char label1[10];
+            if (vbsMsgOld)
+            {
+                sprintf(label1, "%s", "Inactive");
+                status_color4 = warning_color;
+            }
+            else
+            {
+                sprintf(label1, "%s", "Active");
+                status_color4 = good_color;
+            }
+
+            ImGui::Columns(3, "vbsTitle", false);
+            ImGui::SetColumnWidth(0,50);
+            ImGui::SetColumnWidth(1, vbsWidth - 80);
+            ImGui::Text("VBS"); ImGui::NextColumn();
+            ImGui::SetCursorPosX(ImGui::GetCursorPosX() + ImGui::GetColumnWidth() - ImGui::CalcTextSize(label1).x - ImGui::GetScrollX() - 2 * ImGui::GetStyle().ItemSpacing.x);
+            ImGui::Text("%s", label1); ImGui::NextColumn();
+            ImGui::PushID(26);
+            ImGui::PushStyleColor(ImGuiCol_Button, status_color4);
+            ImGui::PushStyleColor(ImGuiCol_ButtonHovered, status_color4);
+            ImGui::PushStyleColor(ImGuiCol_ButtonActive, status_color4);
+            ImGui::Button("", ImVec2(15,15));
+            ImGui::PopStyleColor(3);
+            ImGui::PopID();
+            ImGui::Columns(1);
+            
             ImGui::Separator();
             ImGui::Text("Position: %.1f%%", vbs_fb->get_msg().value);
             ImGui::Text("Setpoint: %.1f%%", vbs_cmd->get_msg().value);
@@ -1131,9 +1217,39 @@ void SamMonitorWidget::show_window(bool& show_dashboard_window, bool guiDebug)
         }
         ImGui::SameLine();
         {
-            ImGui::BeginChild("SBG", ImVec2(110, subWindowHeight), true, 0);
+            const int sbgWidth = 140;
+            ImGui::BeginChild("SBG", ImVec2(sbgWidth, subWindowHeight), true, 0);
 
-            ImGui::Text("SBG");
+            const uint32_t sbgMsgAgeThresh = 3;
+            const bool sbgMsgOld = sbgMsgAgeThresh < current_time_epoch-sbg_euler->get_msg().header.stamp.sec ? true : false;
+            std::string status_text;
+            ImVec4 status_color4;
+            char label1[10];
+            if (sbgMsgOld)
+            {
+                sprintf(label1, "%s", "Inactive");
+                status_color4 = warning_color;
+            }
+            else
+            {
+                sprintf(label1, "%s", "Active");
+                status_color4 = good_color;
+            }
+
+            ImGui::Columns(3, "sbgTitle", false);
+            ImGui::SetColumnWidth(0,50);
+            ImGui::SetColumnWidth(1, sbgWidth - 80);
+            ImGui::Text("SBG"); ImGui::NextColumn();
+            ImGui::SetCursorPosX(ImGui::GetCursorPosX() + ImGui::GetColumnWidth() - ImGui::CalcTextSize(label1).x - ImGui::GetScrollX() - 2 * ImGui::GetStyle().ItemSpacing.x);
+            ImGui::Text("%s", label1); ImGui::NextColumn();
+            ImGui::PushID(26);
+            ImGui::PushStyleColor(ImGuiCol_Button, status_color4);
+            ImGui::PushStyleColor(ImGuiCol_ButtonHovered, status_color4);
+            ImGui::PushStyleColor(ImGuiCol_ButtonActive, status_color4);
+            ImGui::Button("", ImVec2(15,15));
+            ImGui::PopStyleColor(3);
+            ImGui::PopID();
+            ImGui::Columns(1);
             ImGui::Separator();
             ImGui::Text("Heading: %.1f°", sbg_euler->get_msg().angle.z * (180.0/3.14));
             ImGui::Text("Roll:    %.1f°", sbg_euler->get_msg().angle.x * (180.0/3.14));
@@ -1262,9 +1378,9 @@ std::pair<ImVec4, const char*> healthToColoredString(const std::uint8_t health)
     static const std::unordered_map<std::uint8_t, std::pair<ImVec4, const char*>> map
     {
         { 0, { ImVec4(0.0f, 0.71f, 0.06f, 1.00f),   "OK" }},       // Green (dirty)
-        { 1, { ImVec4(0.87f, 0.57f, 0.0f, 1.00f), "WARNING" }},  // Orange
-        { 2, { ImColor(235, 0, 211), "ERROR" }},    // Magenta
-        { 3, { ImColor(255, 0, 0),   "CRITICAL" }}  // Red
+        { 1, { ImVec4(0.87f, 0.57f, 0.0f, 1.00f),   "WARNING" }},  // Orange
+        { 2, { ImColor(235, 0, 211),                "ERROR" }},    // Magenta
+        { 3, { ImVec4(1.0f, 0.0f, 0.0f, 1.00f),     "CRITICAL" }}  // Red
     };
     try
     {
@@ -1272,7 +1388,7 @@ std::pair<ImVec4, const char*> healthToColoredString(const std::uint8_t health)
     }
     catch (std::out_of_range&)
     {
-        return { ImColor(255, 0, 0), std::to_string(health).c_str() };
+        return { ImVec4(1.0f, 0.0f, 0.0f, 1.00f), std::to_string(health).c_str() };
     }
 }
 
@@ -1281,10 +1397,10 @@ std::pair<ImVec4, const char*> modeToColoredString(const std::uint8_t mode)
     static const std::unordered_map<std::uint8_t, std::pair<ImVec4, const char*>> map
     {
         { 0, { ImVec4(0.0f, 0.71f, 0.06f, 1.00f),   "OPERATIONAL" }},      // Green (dirty)
-        { 1, { ImColor(0, 255, 255), "INITIALIZATION" }},   // Cyan
-        { 1, { ImVec4(0.87f, 0.57f, 0.0f, 1.00f), "MAINTENANCE" }},      // Orange
-        { 2, { ImColor(235, 0, 211), "SOFTWARE_UPDATE" }},  // Magenta
-        { 3, { ImColor(255, 0, 0),   "OFFLINE" }}           // Red
+        { 1, { ImColor(0, 255, 255),                "INITIALIZATION" }},   // Cyan
+        { 2, { ImVec4(0.87f, 0.57f, 0.0f, 1.00f),   "MAINTENANCE" }},      // Orange
+        { 3, { ImColor(235, 0, 211),                "SOFTWARE_UPDATE" }},  // Magenta
+        { 7, { ImVec4(1.0f, 0.0f, 0.0f, 1.00f),     "OFFLINE" }}           // Red
     };
     try
     {
@@ -1292,7 +1408,27 @@ std::pair<ImVec4, const char*> modeToColoredString(const std::uint8_t mode)
     }
     catch (std::out_of_range&)
     {
-        return { ImColor(255, 0, 0), std::to_string(mode).c_str() };
+        return { ImVec4(1.0f, 0.0f, 0.0f, 1.00f), std::to_string(mode).c_str() };
+    }
+}
+
+std::pair<ImVec4, const char*> circuitModeToColoredString(const std::uint8_t mode)
+{
+    static const std::unordered_map<std::uint8_t, std::pair<ImVec4, const char*>> map
+    {
+        { 99, { ImVec4(0.0f, 0.71f, 0.06f, 1.00f),   "GOOD" }},     // Green (dirty)
+        { 1, { ImVec4(1.0f, 0.0f, 0.0f, 1.00f), "OVERVOLTAGE" }},   // Red
+        { 0, { ImVec4(1.0f, 0.0f, 0.0f, 1.00f), "UNDERVOLTAGE" }},  // Red
+        { 4, { ImVec4(1.0f, 0.0f, 0.0f, 1.00f), "OVERCURRENT" }},   // Red
+        { 8, { ImVec4(1.0f, 0.0f, 0.0f, 1.00f), "UNDERCURRENT" }}   // Red
+    };
+    try
+    {
+        return map.at(mode);
+    }
+    catch (std::out_of_range&)
+    {
+        return { ImVec4(1.0f, 0.0f, 0.0f, 1.00f), std::to_string(mode).c_str() };
     }
 }
 
