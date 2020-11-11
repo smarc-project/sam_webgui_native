@@ -32,6 +32,7 @@ roswasm_webgui::SamDashboardWidget* dashboard_widget;
 roswasm_webgui::SamDashboardWidget2* dashboard_widget2;
 roswasm_webgui::SamTeleopWidget* teleop_widget;
 roswasm_webgui::SamMonitorWidget* monitor_widget;
+roswasm_webgui::SamLogWidget* roslog_widget;
 
 GLFWwindow* g_window;
 //ImVec4 clear_color = ImVec4(0.45f, 0.55f, 0.60f, 1.00f);
@@ -71,7 +72,7 @@ bool guiDebug = false;
 bool nodeCrashed = false;
 bool publishPanic = false;
 
-// roswasm::Publisher* panic_pub;
+roswasm::Publisher* panic_pub;
 // roswasm::Timer* panic_pub_timer;
 
 // void pub_panic_callback(const ros::TimerEvent& e)
@@ -317,7 +318,7 @@ void loop()
     ImGui::Checkbox("Image topic", &show_image_window);
     ImGui::SameLine(buttonSpacing); ImGui::Checkbox("Actuator controls", &show_actuator_window);
     ImGui::SameLine(2*buttonSpacing); ImGui::Checkbox("Status dashboard", &show_dashboard_window);
-    ImGui::Checkbox("Experiments", &show_experiment_dash_window);
+    ImGui::Checkbox("Log", &show_roslog_window);
     ImGui::SameLine(buttonSpacing); ImGui::Checkbox("Keyboard teleop", &show_teleop_window);
     ImGui::SameLine(2*buttonSpacing); ImGui::Checkbox("Demo widgets", &show_demo_window);      // Edit bools storing our windows open/close state
 
@@ -333,13 +334,16 @@ void loop()
     // ImGui::PushStyleColor(ImGuiCol_Button, warning_color);
     // ImGui::PushStyleColor(ImGuiCol_ButtonHovered, warning_color);
     // ImGui::PushStyleColor(ImGuiCol_ButtonActive, warning_color);
-    // // if(ImGui::Button("Abort!", ImVec2(50,40)))
-    // // {
-    // //   publishPanic = true;
-    // //   std_msgs::String msg;
-    // //   msg.data = "ROS_GUI";
-    // //   panic_pub->publish(msg);
-    // // }
+    // if(ImGui::Button("Abort!", ImVec2(50,40)))
+    // {
+    //   publishPanic = true;
+    //   std_msgs::String msg;
+    //   // msg.data = "ROS_GUI";
+    //   std::stringstream ss;
+    //   ss << "ROS_GUI";
+    //   msg.data = ss.str();
+    //   panic_pub->publish(msg);
+    // }
     // ImGui::PopStyleColor(3);
     // ImGui::PopID();
     // ImGui::SameLine();
@@ -426,6 +430,11 @@ void loop()
   if (show_monitor_window) {
       ImGui::SetNextWindowPos(ImVec2(winSpacing, 280), ImGuiCond_FirstUseEver);
       monitor_widget->show_window(show_monitor_window, guiDebug);
+  }
+
+  if (show_roslog_window) {
+      ImGui::SetNextWindowPos(ImVec2(1072, 500), ImGuiCond_FirstUseEver);
+      roslog_widget->show_window(show_roslog_window, guiDebug);
   }
 
   ImGui::Render();
@@ -573,7 +582,9 @@ extern "C" int main(int argc, char** argv)
   dashboard_widget2 = new roswasm_webgui::SamDashboardWidget2(nh);
   teleop_widget = new roswasm_webgui::SamTeleopWidget(nh);
   monitor_widget = new roswasm_webgui::SamMonitorWidget(nh);
-  // panic_pub = nh->advertise<std_msgs::String>("core/panic_cmd");
+  roslog_widget = new roswasm_webgui::SamLogWidget(nh);
+
+  panic_pub = nh->advertise<std_msgs::String>("core/panic_cmd");
 
   #ifdef __EMSCRIPTEN__
   emscripten_set_main_loop(loop, 20, 1);

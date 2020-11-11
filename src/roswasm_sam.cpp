@@ -260,15 +260,17 @@ SamDashboardWidget::SamDashboardWidget(roswasm::NodeHandle* nh) : was_leak(false
     panic = new TopicBuffer<std_msgs::String>(nh, "core/panic_fb");
     gps = new TopicBuffer<sensor_msgs::NavSatFix>(nh, "core/gps");
     battery = new TopicBuffer<sensor_msgs::BatteryState>(nh, "core/battery_fb");
-    odom = new TopicBuffer<nav_msgs::Odometry>(nh, "dr/odom", 1000);
+    // odom = new TopicBuffer<nav_msgs::Odometry>(nh, "dr/odom", 1000);
     vbs_fb = new TopicBuffer<sam_msgs::PercentStamped>(nh, "core/vbs_fb", 1000);
     lcg = new TopicBuffer<sam_msgs::PercentStamped>(nh, "core/lcg_fb", 1000);
     rpms = new TopicBuffer<smarc_msgs::DualThrusterFeedback>(nh, "core/thrusters_fb", 1000);
     dvl = new TopicBuffer<cola2_msgs::DVL>(nh, "core/dvl", 1000);
-    depth = new TopicBuffer<std_msgs::Float64>(nh, "ctrl/depth_feedback", 1000);
-    pitch = new TopicBuffer<std_msgs::Float64>(nh, "ctrl/pitch_feedback", 1000);
-    roll = new TopicBuffer<std_msgs::Float64>(nh, "ctrl/roll_feedback", 1000);
-    yaw = new TopicBuffer<std_msgs::Float64>(nh, "ctrl/yaw_feedback", 1000);
+    odom_x = new TopicBuffer<std_msgs::Float64>(nh, "ctrl/odom_listener/x_feedback", 1000);
+    odom_y = new TopicBuffer<std_msgs::Float64>(nh, "ctrl/odom_listener/y_feedback", 1000);
+    depth = new TopicBuffer<std_msgs::Float64>(nh, "ctrl/odom_listener/depth_feedback", 1000);
+    pitch = new TopicBuffer<std_msgs::Float64>(nh, "ctrl/odom_listener/pitch_feedback", 1000);
+    roll = new TopicBuffer<std_msgs::Float64>(nh, "ctrl/odom_listener/roll_feedback", 1000);
+    yaw = new TopicBuffer<std_msgs::Float64>(nh, "ctrl/odom_listener/yaw_feedback", 1000);
     motorTemp = new TopicBuffer<sensor_msgs::Temperature>(nh, "core/motor_temp", 1000);
 }
 
@@ -325,17 +327,15 @@ void SamDashboardWidget::show_window(bool& show_dashboard_window)
         ImGui::SameLine(150);
         ImGui::Text("Lon: %.5f", gps->get_msg().longitude);
         ImGui::SameLine(300);
-        ImGui::Text("Depth: %.2fm,", depth->get_msg().data);
-        ImGui::SameLine();
-        ImGui::Text("Alt: %.1f m", dvl->get_msg().altitude);
+        ImGui::Text("Altitude: %.1fm", dvl->get_msg().altitude);
     }
 
     if (ImGui::CollapsingHeader("DR translation", ImGuiTreeNodeFlags_Framed | ImGuiTreeNodeFlags_DefaultOpen)) {
-        ImGui::Text("X: %.2fm", odom->get_msg().pose.pose.position.x);
+        ImGui::Text("X: %.2fm", odom_x->get_msg().data);
         ImGui::SameLine(150);
-        ImGui::Text("Y: %.2fm", odom->get_msg().pose.pose.position.y);
+        ImGui::Text("Y: %.2fm", odom_y->get_msg().data);
         ImGui::SameLine(300);
-        ImGui::Text("Z: %.2fm", odom->get_msg().pose.pose.position.z);
+        ImGui::Text("Depth: %.2fm", depth->get_msg().data);
     }
 
     if (ImGui::CollapsingHeader("DR rotation", ImGuiTreeNodeFlags_Framed | ImGuiTreeNodeFlags_DefaultOpen)) {
@@ -501,7 +501,7 @@ SamMonitorWidget::SamMonitorWidget(roswasm::NodeHandle* nh)
     subCharge = nh->subscribe<sam_msgs::ConsumedChargeArray>("core/consumed_charge_array_fb", std::bind(&SamMonitorWidget::callbackCharge, this, std::placeholders::_1), 10);
     charge = new TopicBuffer<sam_msgs::ConsumedChargeArray>(nh, "core/consumed_charge_array_fb");
     uavcan = new TopicBuffer<uavcan_ros_bridge::UavcanNodeStatusNamedArray>(nh, "core/uavcan_fb");
-    odom = new TopicBuffer<nav_msgs::Odometry>(nh, "dr/odom", 1000);
+    // odom = new TopicBuffer<nav_msgs::Odometry>(nh, "dr/odom", 1000);
     vbs_fb = new TopicBuffer<sam_msgs::PercentStamped>(nh, "core/vbs_fb", 1000);
     vbs_cmd = new TopicBuffer<sam_msgs::PercentStamped>(nh, "core/vbs_cmd", 1000);
     vbs_pressure = new TopicBuffer<sensor_msgs::FluidPressure>(nh, "core/vbs_tank_pressure", 1000);
@@ -518,8 +518,6 @@ SamMonitorWidget::SamMonitorWidget(roswasm::NodeHandle* nh)
     motorTemp = new TopicBuffer<sensor_msgs::Temperature>(nh, "core/motor_temp", 1000);
     motorPressure = new TopicBuffer<sensor_msgs::FluidPressure>(nh, "core/motor_oil_pressure", 1000);
     sbg_euler = new TopicBuffer<sbg_driver::SbgEkfEuler>(nh, "sbg/ekf_euler", 1000);
-    log = new TopicBuffer<rosgraph_msgs::Log>(nh, "/rosout_agg", 1000);
-    subLog = nh->subscribe<rosgraph_msgs::Log>("/rosout_agg", std::bind(&SamMonitorWidget::callbackLog, this, std::placeholders::_1), 10);
 }
 
 void SamMonitorWidget::show_window(bool& show_dashboard_window, bool guiDebug)
@@ -887,7 +885,7 @@ void SamMonitorWidget::show_window(bool& show_dashboard_window, bool guiDebug)
 
                 const float rangeBar = 1000.0f;
 
-                const uint32_t motorMsgAgeThresh = 3;
+                const uint32_t motorMsgAgeThresh = 5;
                 const bool motorMsgOld = motorMsgAgeThresh < current_time_epoch-thrusters_fb->get_msg().thruster_front.header.stamp.sec ? true : false;
                 const int v_fb = motorMsgOld ? 0 : thrusters_fb->get_msg().thruster_front.rpm.rpm;
                 const int v_fb2 = motorMsgOld ? 0 : thrusters_fb->get_msg().thruster_back.rpm.rpm;
@@ -1073,7 +1071,7 @@ void SamMonitorWidget::show_window(bool& show_dashboard_window, bool guiDebug)
             const int ctdWidth = 200;
             ImGui::BeginChild("CTD", ImVec2(ctdWidth, subWindowHeight), true, 0);
 
-            const uint32_t ctdMsgAgeThresh = 3;
+            const uint32_t ctdMsgAgeThresh = 5;
             const bool ctdMsgOld = ctdMsgAgeThresh < current_time_epoch-ctd->get_msg().header.stamp.sec ? true : false;
             std::string status_text;
             ImVec4 status_color4;
@@ -1116,7 +1114,7 @@ void SamMonitorWidget::show_window(bool& show_dashboard_window, bool guiDebug)
             const int dvlWidth = 200;
             ImGui::BeginChild("DVL", ImVec2(dvlWidth, subWindowHeight), true, 0);
 
-            const uint32_t dvlMsgAgeThresh = 3;
+            const uint32_t dvlMsgAgeThresh = 5;
             const bool dvlMsgOld = dvlMsgAgeThresh < current_time_epoch-dvl->get_msg().header.stamp.sec ? true : false;
             std::string status_text;
             ImVec4 status_color4;
@@ -1169,7 +1167,7 @@ void SamMonitorWidget::show_window(bool& show_dashboard_window, bool guiDebug)
             const int vbsWidth = 140;
             ImGui::BeginChild("VBS", ImVec2(vbsWidth, subWindowHeight), true, 0);
 
-            const uint32_t vbsMsgAgeThresh = 3;
+            const uint32_t vbsMsgAgeThresh = 5;
             const bool vbsMsgOld = vbsMsgAgeThresh < current_time_epoch-vbs_fb->get_msg().header.stamp.sec ? true : false;
             std::string status_text;
             ImVec4 status_color4;
@@ -1220,7 +1218,7 @@ void SamMonitorWidget::show_window(bool& show_dashboard_window, bool guiDebug)
             const int sbgWidth = 140;
             ImGui::BeginChild("SBG", ImVec2(sbgWidth, subWindowHeight), true, 0);
 
-            const uint32_t sbgMsgAgeThresh = 3;
+            const uint32_t sbgMsgAgeThresh = 5;
             const bool sbgMsgOld = sbgMsgAgeThresh < current_time_epoch-sbg_euler->get_msg().header.stamp.sec ? true : false;
             std::string status_text;
             ImVec4 status_color4;
@@ -1260,85 +1258,8 @@ void SamMonitorWidget::show_window(bool& show_dashboard_window, bool guiDebug)
         
     } else if(selectedTab == 3) {
         {
-            ImGui::BeginChild("btLog", ImVec2(600, 200), true, 0);
-
-            ImGui::Text("Log");
-            if(guiDebug)
-            {
-                ImGui::SameLine(); ImGui::Text("List size: %lu", btLogList.size());
-            }
-        
-            ImGui::Separator();
-            // const int listLimit = 5;
-
-            // const bool aboutBT = strcmp(log->get_msg().name.c_str(), "/sam/sam_bt") == 0 ? true : false;
-            // if(aboutBT)
-            // {
-            //     btLogList.push_front(log->get_msg());
-            //     const int listOversize = btLogList.size() - listLimit;
-            //     for(int i = 0; i < listOversize; i++)
-            //     {
-            //         btLogList.pop_back();
-            //     }
-            //     // ImGui::Text("%s", log->get_msg().msg.c_str());
-            // }
-
-            
-            {
-                ImGui::Columns(2, "btLogList");
-                ImGui::Separator();
-
-                ImGui::SetColumnWidth(0, 100); ImGui::Text("Function"); ImGui::NextColumn();
-                ImGui::SetColumnWidth(1, 400); ImGui::Text("Message"); ImGui::NextColumn();
-
-                ImGui::Separator();
-
-
-                static std::list<rosgraph_msgs::Log>::iterator selectedLog;
-                // static int selectedLog = -1;
-                for (auto msgIt = btLogList.begin(); msgIt != btLogList.end(); msgIt++)
-                {
-                    char logLabel[32];
-                    sprintf(logLabel, "%s", msgIt->function.c_str());
-                    if (ImGui::Selectable(logLabel, selectedLog == msgIt, ImGuiSelectableFlags_SpanAllColumns))
-                    {
-                        selectedLog = msgIt;
-                    }
-                    ImGui::NextColumn();
-                    ImGui::Text("%s", msgIt->msg.c_str()); ImGui::NextColumn();
-                    // if (circuitNames.find(id) != circuitNames.end())
-                    // {
-                    //     ImGui::Text("%s", circuitNames[id]);
-                    // }
-                    // else
-                    // {
-                    //     ImGui::Text("-");
-                    // }
-                    // ImGui::NextColumn();
-                    // ImGui::Text("%.2f", voltage); ImGui::NextColumn();
-                    // ImGui::Text("%.3f", current); ImGui::NextColumn();
-                    // ImGui::Text("%.2f", power); ImGui::NextColumn();
-                    // ImGui::Text("%d", circuit->get_msg().array[i].circuit.error_flags); ImGui::NextColumn();
-                    // if (circuitCharges.find(id) != circuitCharges.end())
-                    // {
-                    //     ImGui::Text("%.4f", circuitCharges[id]);
-                    // }
-                    // else
-                    // {
-                    //     ImGui::Text("-");
-                    // }
-                    // ImGui::NextColumn();
-                }
-            }
-            ImGui::EndChild();
-        }
-        {
-            ImGui::BeginChild("btLogUnfiltered", ImVec2(600, 200), true, 0);
-
-            ImGui::Text("Log unfiltered");
-            ImGui::Separator();
-            ImGui::Text(">>%s<<", log->get_msg().name.c_str());
-            ImGui::Text("%s", log->get_msg().msg.c_str());
+            ImGui::BeginChild("XXX", ImVec2(600, 200), true, 0);
+            ImGui::Text("XXX");
 
             ImGui::EndChild();
         }
@@ -1353,26 +1274,8 @@ void SamMonitorWidget::callbackCharge(const sam_msgs::ConsumedChargeArray& msg)
         circuitCharges[msg.array[i].circuit_id] = msg.array[i].charge;
     }
 }
-void SamMonitorWidget::callbackLog(const rosgraph_msgs::Log& msg)
-{
-    const int btListLimit = 5;
+// -------------------------------------- SamMonitorWidget end --------------------------------------
 
-    const bool aboutBT = strcmp(msg.name.c_str(), "/sam/sam_bt") == 0 ? true : false;
-    if(aboutBT)
-    {
-        btLogList.push_front(msg);
-        const int btListOversize = btLogList.size() - btListLimit;
-        for(int i = 0; i < btListOversize; i++)
-        {
-            btLogList.pop_back();
-        }
-        // ImGui::Text("%s", msg.msg.c_str());
-    }
-    // for (int i = 0; i < msg.array.size(); i++)
-    // {
-    //     circuitCharges[msg.array[i].circuit_id] = msg.array[i].charge/1000.0;
-    // }
-}
 std::pair<ImVec4, const char*> healthToColoredString(const std::uint8_t health)
 {
     static const std::unordered_map<std::uint8_t, std::pair<ImVec4, const char*>> map
@@ -1431,6 +1334,294 @@ std::pair<ImVec4, const char*> circuitModeToColoredString(const std::uint8_t mod
         return { ImVec4(1.0f, 0.0f, 0.0f, 1.00f), std::to_string(mode).c_str() };
     }
 }
+
+// ---------------------------------------- SamLogWidget ----------------------------------------
+SamLogWidget::SamLogWidget(roswasm::NodeHandle* nh)
+{
+    // subLog = nh->subscribe<rosgraph_msgs::Log>("/rosout_agg", std::bind(&SamLogWidget::callbackLog, this, std::placeholders::_1), 10);
+    subLog = nh->subscribe<rosgraph_msgs::Log>("/rosout", std::bind(&SamLogWidget::callbackLog, this, std::placeholders::_1), 10);
+}
+void SamLogWidget::show_window(bool& show_roslog_window, bool guiDebug)
+{
+    // ImGuiIO& io = ImGui::GetIO();
+    // ImVec4 col = ImGui::GetStyle().Colors[23];
+
+    ImGui::SetNextWindowSize(ImVec2(472, 400), ImGuiCond_FirstUseEver);
+    ImGui::Begin("Log", &show_roslog_window);
+
+    // std::chrono::system_clock::time_point tp = std::chrono::system_clock::now();
+    // std::chrono::system_clock::duration dtn = tp.time_since_epoch();
+    // uint32_t current_time_epoch = dtn.count() * std::chrono::system_clock::period::num / std::chrono::system_clock::period::den;
+
+    static int selectedTab = 0;
+    const std::vector<const char*> tabNames{"All", "Error", "Warning", "UAVCAN", "Other"};
+    for (int i = 0; i < tabNames.size(); i++)
+    {
+        if (i > 0) ImGui::SameLine();
+        ImGui::PushID(i);
+        if(selectedTab == i) {
+            ImGui::PushStyleColor(ImGuiCol_Button, ImGui::GetColorU32(ImGuiCol_FrameBgActive));
+        } else {
+            ImGui::PushStyleColor(ImGuiCol_Button, ImGui::GetColorU32(ImGuiCol_FrameBg));
+        }
+        ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImGui::GetColorU32(ImGuiCol_FrameBgHovered));
+        ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImGui::GetColorU32(ImGuiCol_FrameBgActive));
+        if(ImGui::Button(tabNames[i], ImVec2(85,20))){
+            selectedTab = i;
+        }
+        ImGui::PopStyleColor(3);
+        ImGui::PopID();
+    }
+    if(guiDebug)
+    {
+        ImGui::Text("Choosen tab: %d", selectedTab);
+        // ImGui::Text("%u", current_time_epoch);
+    }
+
+    if(selectedTab == 0)
+    {
+        {
+            ImGui::BeginChild("mainLog", ImGui::GetContentRegionAvail(), true, 0);
+            // ImGui::BeginChild("mainLog", ImVec2(600, 200), true, 0);
+
+            ImGui::Text("Log");
+            if(guiDebug)
+            {
+                ImGui::SameLine(); ImGui::Text("List size: %lu", mainLogList.size());
+            }
+        
+            ImGui::Separator();
+            
+            {
+                ImGui::Columns(1, "mainLogList");
+
+                // ImGui::SetColumnWidth(0, 100);
+                // ImGui::SetColumnWidth(1, 400);
+                // ImGui::Text("Message"); ImGui::NextColumn();
+                // ImGui::Text("Function"); ImGui::NextColumn();
+                // ImGui::Separator();
+
+                static std::list<rosgraph_msgs::Log>::iterator selectedLog;
+                for (auto msgIt = mainLogList.begin(); msgIt != mainLogList.end(); msgIt++)
+                {
+                    char logLabel[32];
+                    sprintf(logLabel, "%s", msgIt->msg.c_str());
+                    if (ImGui::Selectable(logLabel, selectedLog == msgIt, ImGuiSelectableFlags_SpanAllColumns))
+                    {
+                        selectedLog = msgIt;
+                    }
+                    // ImGui::NextColumn();
+                    // ImGui::Text("%s", msgIt->function.c_str()); ImGui::NextColumn();
+                }
+                ImGui::Columns(1);
+            }
+            ImGui::EndChild();
+        }
+    }
+    else if(selectedTab == 1)
+    {
+        {
+            ImGui::BeginChild("errorLog", ImGui::GetContentRegionAvail(), true, 0);
+
+            ImGui::Text("Log");
+            if(guiDebug)
+            {
+                ImGui::SameLine(); ImGui::Text("List size: %lu", errorLogList.size());
+            }
+        
+            ImGui::Separator();
+            
+            {
+                ImGui::Columns(1, "errorLogList");
+
+                // ImGui::SetColumnWidth(0, 100);
+                // ImGui::SetColumnWidth(1, 400);
+                // ImGui::Text("Message"); ImGui::NextColumn();
+                // ImGui::Text("Function"); ImGui::NextColumn();
+                // ImGui::Separator();
+
+                static std::list<rosgraph_msgs::Log>::iterator selectedLog;
+                for (auto msgIt = errorLogList.begin(); msgIt != errorLogList.end(); msgIt++)
+                {
+                    char logLabel[32];
+                    sprintf(logLabel, "%s", msgIt->msg.c_str());
+                    if (ImGui::Selectable(logLabel, selectedLog == msgIt, ImGuiSelectableFlags_SpanAllColumns))
+                    {
+                        selectedLog = msgIt;
+                    }
+                    // ImGui::NextColumn();
+                    // ImGui::Text("%s", msgIt->function.c_str()); ImGui::NextColumn();
+                }
+                ImGui::Columns(1);
+            }
+            ImGui::EndChild();
+        }
+    }
+    else if(selectedTab == 2)
+    {
+        {
+            ImGui::BeginChild("warningLog", ImGui::GetContentRegionAvail(), true, 0);
+
+            ImGui::Text("Log");
+            if(guiDebug)
+            {
+                ImGui::SameLine(); ImGui::Text("List size: %lu", warningLogList.size());
+            }
+        
+            ImGui::Separator();
+            
+            {
+                ImGui::Columns(1, "warningLogList");
+
+                // ImGui::SetColumnWidth(0, 100);
+                // ImGui::SetColumnWidth(1, 400);
+                // ImGui::Text("Message"); ImGui::NextColumn();
+                // ImGui::Text("Function"); ImGui::NextColumn();
+                // ImGui::Separator();
+
+                static std::list<rosgraph_msgs::Log>::iterator selectedLog;
+                for (auto msgIt = warningLogList.begin(); msgIt != warningLogList.end(); msgIt++)
+                {
+                    char logLabel[32];
+                    sprintf(logLabel, "%s", msgIt->msg.c_str());
+                    if (ImGui::Selectable(logLabel, selectedLog == msgIt, ImGuiSelectableFlags_SpanAllColumns))
+                    {
+                        selectedLog = msgIt;
+                    }
+                    // ImGui::NextColumn();
+                    // ImGui::Text("%s", msgIt->function.c_str()); ImGui::NextColumn();
+                }
+                ImGui::Columns(1);
+            }
+            ImGui::EndChild();
+        }
+    }
+    else if(selectedTab == 4)
+    {
+        {
+            ImGui::BeginChild("btLog", ImVec2(600, 200), true, 0);
+
+            ImGui::Text("Log");
+            if(guiDebug)
+            {
+                ImGui::SameLine(); ImGui::Text("List size: %lu", btLogList.size());
+            }
+        
+            ImGui::Separator();
+            
+            {
+                ImGui::Columns(2, "btLogList");
+                ImGui::Separator();
+
+                ImGui::SetColumnWidth(0, 100); ImGui::Text("Function"); ImGui::NextColumn();
+                ImGui::SetColumnWidth(1, 400); ImGui::Text("Message"); ImGui::NextColumn();
+
+                ImGui::Separator();
+
+
+                static std::list<rosgraph_msgs::Log>::iterator selectedLog;
+                for (auto msgIt = btLogList.begin(); msgIt != btLogList.end(); msgIt++)
+                {
+                    char logLabel[32];
+                    sprintf(logLabel, "%s", msgIt->function.c_str());
+                    if (ImGui::Selectable(logLabel, selectedLog == msgIt, ImGuiSelectableFlags_SpanAllColumns))
+                    {
+                        selectedLog = msgIt;
+                    }
+                    ImGui::NextColumn();
+                    ImGui::Text("%s", msgIt->msg.c_str()); ImGui::NextColumn();
+                }
+                ImGui::Columns(1);
+            }
+            ImGui::EndChild();
+        }
+        {
+            ImGui::BeginChild("mainLogUnfiltered", ImVec2(600, 200), true, 0);
+
+            ImGui::Text("Log unfiltered");
+            ImGui::Separator();
+            ImGui::Columns(1, "unLogList");
+            ImGui::Separator();
+
+            // ImGui::SetColumnWidth(0, 100);
+            // ImGui::SetColumnWidth(1, 400);
+            // ImGui::Text("Message"); ImGui::NextColumn();
+            // ImGui::Text("Function"); ImGui::NextColumn();
+
+            ImGui::Separator();
+            static std::list<rosgraph_msgs::Log>::iterator selectedLog;
+            for (auto msgIt = mainLogList.begin(); msgIt != mainLogList.end(); msgIt++)
+            {
+                char logLabel[32];
+                sprintf(logLabel, "%s", msgIt->msg.c_str());
+                if (ImGui::Selectable(logLabel, selectedLog == msgIt, ImGuiSelectableFlags_SpanAllColumns))
+                {
+                    selectedLog = msgIt;
+                }
+                // ImGui::NextColumn();
+                // ImGui::Text("%s", msgIt->function.c_str()); ImGui::NextColumn();
+            }
+            ImGui::Columns(1);
+            ImGui::EndChild();
+        }
+    }
+    
+    ImGui::End();
+}
+void SamLogWidget::callbackLog(const rosgraph_msgs::Log& msg)
+{
+    const int mainListLimit = 100;
+    const int errorListLimit = 50;
+    const int warningListLimit = 50;
+    const int btListLimit = 50;
+    
+    const uint8_t msgLevel = msg.level;
+    const bool aboutRosBridge = strcmp(msg.name.c_str(), "/sam/rosbridge_websocket") == 0 ? true : false;
+
+    if(!aboutRosBridge || msgLevel >= 4)
+    {
+        mainLogList.push_front(msg);
+        const int mainListOversize = mainLogList.size() - mainListLimit;
+        for(int i = 0; i < mainListOversize; i++)
+        {
+            mainLogList.pop_back();
+        }
+    }
+
+    const bool errorLog = msgLevel >= 8 ? true : false;
+    if(errorLog)
+    {
+        errorLogList.push_front(msg);
+        const int errorListOversize = errorLogList.size() - errorListLimit;
+        for(int i = 0; i < errorListOversize; i++)
+        {
+            errorLogList.pop_back();
+        }
+    }
+
+    const bool warningLog = msgLevel == 4 ? true : false;
+    if(warningLog)
+    {
+        warningLogList.push_front(msg);
+        const int warningListOversize = warningLogList.size() - warningListLimit;
+        for(int i = 0; i < warningListOversize; i++)
+        {
+            warningLogList.pop_back();
+        }
+    }
+
+    const bool aboutBT = strcmp(msg.name.c_str(), "/sam/sam_bt") == 0 ? true : false;
+    if(aboutBT)
+    {
+        btLogList.push_front(msg);
+        const int btListOversize = btLogList.size() - btListLimit;
+        for(int i = 0; i < btListOversize; i++)
+        {
+            btLogList.pop_back();
+        }
+    }
+}
+// -------------------------------------- SamLogWidget end --------------------------------------
 
 SamTeleopWidget::SamTeleopWidget(roswasm::NodeHandle* nh) : enabled(false), pub_timer(nullptr)
 {

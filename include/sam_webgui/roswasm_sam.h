@@ -79,11 +79,13 @@ private:
     TopicBuffer<std_msgs::String>* panic;
     TopicBuffer<sensor_msgs::NavSatFix>* gps;
     TopicBuffer<sensor_msgs::BatteryState>* battery;
-    TopicBuffer<nav_msgs::Odometry>* odom;
+    // TopicBuffer<nav_msgs::Odometry>* odom;
     TopicBuffer<sam_msgs::PercentStamped>* vbs_fb;
     TopicBuffer<sam_msgs::PercentStamped>* lcg;
     TopicBuffer<smarc_msgs::DualThrusterFeedback>* rpms;
     TopicBuffer<cola2_msgs::DVL>* dvl;
+    TopicBuffer<std_msgs::Float64>* odom_x;
+    TopicBuffer<std_msgs::Float64>* odom_y;
     TopicBuffer<std_msgs::Float64>* depth;
     TopicBuffer<std_msgs::Float64>* pitch;
     TopicBuffer<std_msgs::Float64>* roll;
@@ -125,13 +127,13 @@ private:
     roswasm::Subscriber* subCharge;
     void callbackCharge(const sam_msgs::ConsumedChargeArray& msg);
     std::unordered_map<int, float> circuitCharges;
-    std::list<rosgraph_msgs::Log> btLogList;
-    roswasm::Subscriber* subLog;
-    void callbackLog(const rosgraph_msgs::Log& msg);
+    // std::list<rosgraph_msgs::Log> btLogList;
+    // roswasm::Subscriber* subLog;
+    // void callbackLog(const rosgraph_msgs::Log& msg);
     // TopicBuffer<sam_msgs::ConsumedChargeFeedback>* charge;
     TopicBuffer<uavcan_ros_bridge::UavcanNodeStatusNamedArray>* uavcan;
     TopicBuffer<sam_msgs::ConsumedChargeArray>* charge;
-    TopicBuffer<nav_msgs::Odometry>* odom;
+    // TopicBuffer<nav_msgs::Odometry>* odom;
     TopicBuffer<sam_msgs::PercentStamped>* vbs_fb;
     TopicBuffer<sam_msgs::PercentStamped>* vbs_cmd;
     TopicBuffer<sensor_msgs::FluidPressure>* vbs_pressure;
@@ -141,6 +143,8 @@ private:
     TopicBuffer<smarc_msgs::DualThrusterRPM>* thrusters_cmd;
     TopicBuffer<smarc_msgs::CTDFeedback>* ctd;
     TopicBuffer<cola2_msgs::DVL>* dvl;
+    TopicBuffer<std_msgs::Float64>* odom_x;
+    TopicBuffer<std_msgs::Float64>* odom_y;
     TopicBuffer<std_msgs::Float64>* depth;
     TopicBuffer<std_msgs::Float64>* pitch;
     TopicBuffer<std_msgs::Float64>* roll;
@@ -148,19 +152,30 @@ private:
     TopicBuffer<sensor_msgs::Temperature>* motorTemp;
     TopicBuffer<sensor_msgs::FluidPressure>* motorPressure;
     TopicBuffer<sbg_driver::SbgEkfEuler>* sbg_euler;
-    TopicBuffer<rosgraph_msgs::Log>* log;
+    // TopicBuffer<rosgraph_msgs::Log>* log;
     const ImVec4 emergency_color = ImVec4(1.0f, 0.0f, 0.0f, 1.00f);
     ImVec4 warning_color = ImVec4(0.87f, 0.57f, 0.0f, 1.00f);
     ImVec4 good_color = ImVec4(0.0f, 0.71f, 0.06f, 1.00f);
-
-    // std::pair<ImVec4, const char*> healthToColoredString(const std::uint8_t health);
-    // std::pair<ImVec4, const char*> modeToColoredString(const std::uint8_t mode);
-    // std::pair<ImVec4, const char*> circuitModeToColoredString(const std::uint8_t mode);
 public:
     void show_window(bool& show_monitor_window, bool guiDebug);
     SamMonitorWidget(roswasm::NodeHandle* nh);
 };
 // -------------------------------------- SamMonitorWidget end --------------------------------------
+
+// ---------------------------------------- SamLogWidget ----------------------------------------
+class SamLogWidget {
+private:
+    std::list<rosgraph_msgs::Log> mainLogList;
+    std::list<rosgraph_msgs::Log> errorLogList;
+    std::list<rosgraph_msgs::Log> warningLogList;
+    std::list<rosgraph_msgs::Log> btLogList;
+    roswasm::Subscriber* subLog;
+    void callbackLog(const rosgraph_msgs::Log& msg);
+public:
+    void show_window(bool& show_roslog_window, bool guiDebug);
+    SamLogWidget(roswasm::NodeHandle* nh);
+};
+// -------------------------------------- SamLogWidget end --------------------------------------
 
 class SamTeleopWidget {
 private:
