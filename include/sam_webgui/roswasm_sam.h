@@ -8,6 +8,7 @@
 #include <rosgraph_msgs/Log.h>
 
 #include <std_msgs/String.h>
+#include <diagnostic_msgs/DiagnosticArray.h>
 
 #include <sensor_msgs/NavSatFix.h>
 #include <sensor_msgs/BatteryState.h>
@@ -29,6 +30,7 @@
 
 #include <uavcan_ros_bridge/CircuitStatus.h>
 #include <uavcan_ros_bridge/UavcanNodeStatusNamedArray.h>
+#include <uavcan_ros_bridge/UavcanRestartNode.h>
 
 #include <cola2_msgs/DVL.h>
 
@@ -143,6 +145,17 @@ private:
     TopicBuffer<smarc_msgs::DualThrusterRPM>* thrusters_cmd;
     TopicBuffer<smarc_msgs::CTDFeedback>* ctd;
     TopicBuffer<cola2_msgs::DVL>* dvl;
+    roswasm::ServiceClient* first_service;
+    void service_callback(const uavcan_ros_bridge::UavcanRestartNode::Response& res, bool result);
+    TopicBuffer<diagnostic_msgs::DiagnosticArray>* system;
+    roswasm::Subscriber* subSystem;
+    void callbackSystem(const diagnostic_msgs::DiagnosticArray& msg);
+    uint32_t lastSystemUpdate = 0;
+    std::vector<std::pair<int, float>> cpu{{0, 0}, {0, 0}, {0, 0}, {0, 0}, {0, 0}, {0, 0}, {0, 0}, {0, 0}};
+    std::pair<int, float> gpu{0, 0};
+    std::pair<float, float> ram{0, 0};
+    std::vector<float> jTemp{0, 0, 0, 0, 0, 0, 0, 0};
+
     TopicBuffer<std_msgs::Float64>* odom_x;
     TopicBuffer<std_msgs::Float64>* odom_y;
     TopicBuffer<std_msgs::Float64>* depth;
@@ -165,12 +178,14 @@ public:
 // ---------------------------------------- SamLogWidget ----------------------------------------
 class SamLogWidget {
 private:
+    roswasm::NodeHandle* nhLocal;
     std::list<rosgraph_msgs::Log> mainLogList;
     std::list<rosgraph_msgs::Log> errorLogList;
     std::list<rosgraph_msgs::Log> warningLogList;
     std::list<rosgraph_msgs::Log> btLogList;
     roswasm::Subscriber* subLog;
     void callbackLog(const rosgraph_msgs::Log& msg);
+    bool logEnable = false;
 public:
     void show_window(bool& show_roslog_window, bool guiDebug);
     SamLogWidget(roswasm::NodeHandle* nh);

@@ -5,6 +5,19 @@
 
 namespace roswasm_webgui {
 
+static void HelpMarker(const char* desc)
+{
+    ImGui::TextDisabled("(?)");
+    if (ImGui::IsItemHovered())
+    {
+        ImGui::BeginTooltip();
+        ImGui::PushTextWrapPos(ImGui::GetFontSize() * 35.0f);
+        ImGui::TextUnformatted(desc);
+        ImGui::PopTextWrapPos();
+        ImGui::EndTooltip();
+    }
+}
+
 bool draw_ballast_angles(sam_msgs::BallastAngles& msg, roswasm::Publisher* pub)
 {
     ImGui::PushID("Angles cmd slider");
@@ -511,6 +524,11 @@ SamMonitorWidget::SamMonitorWidget(roswasm::NodeHandle* nh)
     thrusters_cmd = new TopicBuffer<smarc_msgs::DualThrusterRPM>(nh, "core/thrusters_cmd", 1000);
     ctd = new TopicBuffer<smarc_msgs::CTDFeedback>(nh, "core/ctd_fb", 1000);
     dvl = new TopicBuffer<cola2_msgs::DVL>(nh, "core/dvl", 1000);
+    // first_service = nh->serviceClient<uavcan_ros_bridge::UavcanRestartNode>("/core/uavcan_restart_node", std::bind(&SamMonitorWidget::service_callback, this, std::placeholders::_1, std::placeholders::_2));
+    first_service = nh->serviceClient<uavcan_ros_bridge::UavcanRestartNode>("/sam/core/uavcan_restart_node", std::bind(&SamMonitorWidget::service_callback, this, std::placeholders::_1, std::placeholders::_2));
+    system = new TopicBuffer<diagnostic_msgs::DiagnosticArray>(nh, "core/jetson_diagnostics_fb", 1000);
+    subSystem = nh->subscribe<diagnostic_msgs::DiagnosticArray>("core/jetson_diagnostics_fb", std::bind(&SamMonitorWidget::callbackSystem, this, std::placeholders::_1), 10);
+
     depth = new TopicBuffer<std_msgs::Float64>(nh, "ctrl/depth_feedback", 1000);
     pitch = new TopicBuffer<std_msgs::Float64>(nh, "ctrl/pitch_feedback", 1000);
     roll = new TopicBuffer<std_msgs::Float64>(nh, "ctrl/roll_feedback", 1000);
@@ -530,7 +548,7 @@ void SamMonitorWidget::show_window(bool& show_dashboard_window, bool guiDebug)
     uint32_t current_time_epoch = dtn.count() * std::chrono::system_clock::period::num / std::chrono::system_clock::period::den;
 
     static int selectedTab = 0;
-    const std::vector<const char*> tabNames{"Overview", "Electrical", "UAVCAN", "BT", "Comms", "Payloads"};
+    const std::vector<const char*> tabNames{"Overview", "Electrical", "UAVCAN", "Jetson", "Comms", "Payloads"};
     for (int i = 0; i < tabNames.size(); i++)
     {
         if (i > 0) ImGui::SameLine();
@@ -554,7 +572,7 @@ void SamMonitorWidget::show_window(bool& show_dashboard_window, bool guiDebug)
         ImGui::Text("%u", current_time_epoch);
     }
 
-    const std::vector<const char*> names{"Setup", "Monitor", "Control", "Service", "Experiments"};
+    // const std::vector<const char*> names{"Setup", "Monitor", "Control", "Service", "Experiments"};
     if(selectedTab == 1) {
         {
             ImGui::BeginChild("Battery", ImVec2(475, 80), false, 0);
@@ -712,7 +730,10 @@ void SamMonitorWidget::show_window(bool& show_dashboard_window, bool guiDebug)
             ImGui::EndChild();
             ImGui::EndChild();
         }
-    } else if(selectedTab == 2) {
+    }
+    else if(selectedTab == 2)
+    {
+        static int selectedUavcan = -1;
         {
             std::pair<ImVec4, const char*> healthToColoredString(const std::uint8_t health);
             std::pair<ImVec4, const char*> modeToColoredString(const std::uint8_t mode);
@@ -739,7 +760,6 @@ void SamMonitorWidget::show_window(bool& show_dashboard_window, bool guiDebug)
             }
             ImGui::Separator();
 
-            static int selectedUavcan = -1;
             for (int i = 0; i < uavcan->get_msg().array.size(); i++)
             {
                 const std::pair<ImVec4, const char*> _health = healthToColoredString(uavcan->get_msg().array[i].ns.health);
@@ -754,6 +774,10 @@ void SamMonitorWidget::show_window(bool& show_dashboard_window, bool guiDebug)
                 if(uavcan->get_msg().array[i].id == 98)
                 {
                     ImGui::Text("smarc.sam.uavcan_bridge.publisher");
+                }
+                else if(uavcan->get_msg().array[i].id == 100)
+                {
+                    ImGui::Text("smarc.sam.uavcan_bridge.services");
                 }
                 else
                 {
@@ -771,9 +795,53 @@ void SamMonitorWidget::show_window(bool& show_dashboard_window, bool guiDebug)
             ImGui::SameLine();
         {
             ImGui::BeginChild("UAVCAN2", ImGui::GetContentRegionAvail(), false, 0);
-            ImGui::Text("UAVCAN details");
-            ImGui::BeginChild("UAVCAN3", ImVec2(0, 0), true, 0);
-            ImGui::EndChild();
+                ImGui::Text("UAVCAN details");
+                ImGui::BeginChild("UAVCAN3", ImVec2(0, 0), true, 0);
+
+                if (selectedUavcan != -1)
+                {
+                    const uint8_t _id = uavcan->get_msg().array[selectedUavcan].id;
+                    if (97 <= _id && _id <= 100)
+                    {
+                        // Ros nodes
+                        ImGui::Text("This is a ROS node");
+                    }
+                    else if (_id == 127)
+                    {
+                        // Babel
+                        ImGui::Text("This is a Babel");
+                    }
+                    else
+                    {
+                        ImGui::Columns(2, "uavcanTable2", false);
+                        ImGui::SetColumnWidth(0, 40);
+                        ImGui::Text("ID"); ImGui::NextColumn();
+                        ImGui::Text("Name"); ImGui::NextColumn();
+                        ImGui::Separator();
+                        ImGui::Text("%d", _id); ImGui::NextColumn();
+                        ImGui::Text("%s", uavcan->get_msg().array[selectedUavcan].name.c_str());
+                        ImGui::Separator();
+                        ImGui::Columns(1);
+                        if (97 <= _id && _id <= 100)
+                        {
+                            // Ros nodes
+                        }
+                        else
+                        {
+                            if(ImGui::Button("RESTART", ImVec2(60, 20)))
+                            {
+                                uavcan_ros_bridge::UavcanRestartNode::Request req;
+                                req.node_id = uavcan->get_msg().array[selectedUavcan].id;
+                                first_service->call<uavcan_ros_bridge::UavcanRestartNode>(req);
+                            }
+                        }
+                    }
+                }
+                else
+                {
+                    ImGui::Text("No node selected :(");
+                }
+                ImGui::EndChild();
             ImGui::EndChild();
         }
         // {
@@ -883,7 +951,7 @@ void SamMonitorWidget::show_window(bool& show_dashboard_window, bool guiDebug)
                 ImVec2 motorWindowPos = ImGui::GetCursorScreenPos();
                 ImVec2 motorOrigin = ImGui::GetCursorPos();
 
-                const float rangeBar = 1000.0f;
+                const float rangeBar = 1500.0f;
 
                 const uint32_t motorMsgAgeThresh = 5;
                 const bool motorMsgOld = motorMsgAgeThresh < current_time_epoch-thrusters_fb->get_msg().thruster_front.header.stamp.sec ? true : false;
@@ -1256,10 +1324,95 @@ void SamMonitorWidget::show_window(bool& show_dashboard_window, bool guiDebug)
             ImGui::EndChild();
         }
         
-    } else if(selectedTab == 3) {
+    }
+    else if(selectedTab == 3)
+    {
         {
-            ImGui::BeginChild("XXX", ImVec2(600, 200), true, 0);
-            ImGui::Text("XXX");
+            ImGui::BeginChild("Jetson", ImVec2(600, 200), true, 0);
+            // ImGui::Columns(4);
+            // ImGui::SetColumnWidth(0, 40);
+            // ImGui::SetColumnWidth(1, 230);
+            // ImGui::SetColumnWidth(2, 40);
+            // ImGui::SetColumnWidth(3, 230);
+
+            // ImGui::Text("Core"); ImGui::NextColumn();
+            // ImGui::Text("Utilization"); ImGui::NextColumn();
+            // ImGui::Text("Core"); ImGui::NextColumn();
+            // ImGui::Text("Utilization"); ImGui::NextColumn();
+            ImGui::Columns(6);
+            ImGui::SetColumnWidth(0, 40);
+            ImGui::SetColumnWidth(1, 150);
+            ImGui::SetColumnWidth(2, 110);
+            ImGui::SetColumnWidth(3, 40);
+            ImGui::SetColumnWidth(4, 150);
+            ImGui::SetColumnWidth(5, 110);
+            char buf[2];
+            sprintf(buf, "");
+            for(int i = 0; i < 4; i++)
+            {
+                ImGui::Text("CPU%d", i+1); ImGui::NextColumn();
+                ImGui::ProgressBar(cpu[i].first/100.0, ImVec2(-1, 15), buf); ImGui::NextColumn();
+                // ImGui::Text("%d%% @ %.1fGHz", cpu[i].first, cpu[i].second); ImGui::NextColumn();
+                ImGui::Text("%d%% ", cpu[i].first); ImGui::SameLine(40);
+                ImGui::Text("@ %.1fGHz", cpu[i].second); ImGui::NextColumn();
+                ImGui::Text("CPU%d", i+5); ImGui::NextColumn();
+                ImGui::ProgressBar(cpu[i+4].first/100.0, ImVec2(-1, 15), buf); ImGui::NextColumn();
+                ImGui::Text("%d%% ", cpu[i+4].first); ImGui::SameLine(40);
+                ImGui::Text("@ %.1fGHz", cpu[i+4].second); ImGui::NextColumn();
+            }
+
+            ImGui::Columns(1);
+            ImGui::Text("GPU"); ImGui::SameLine();
+            ImGui::ProgressBar(gpu.first/100.0, ImVec2(400, 15), buf); ImGui::SameLine();
+            ImGui::Text("%d%% @ %.0fMHz", gpu.first, gpu.second);
+            ImGui::Text("RAM"); ImGui::SameLine();
+            ImGui::ProgressBar(ram.first/ram.second, ImVec2(400, 15), buf); ImGui::SameLine();
+            ImGui::Text("%.0f%% - %.1fGB/%.1fGB", 100*ram.first/ram.second, ram.first, ram.second);
+            ImGui::EndChild();
+        }
+        ImGui::SameLine();
+        {
+            ImGui::BeginChild("Jetson2", ImVec2(320, 200), true, 0);
+            ImGui::Text("Temperatures");
+            ImGui::Separator();
+
+            char buf[2];
+            sprintf(buf, "");
+            const std::vector<std::pair<const char*, float>> thermalZones{{"Tdiode", 109}, {"AO", 109}, {"iwlwifi", 120}, {"FAN", 70}, {"AUX", 82}, {"GPU", 88}, {"Tboard", 107}, {"CPU", 86}};
+            ImGui::Columns(4, "jetsonTemps", false);
+            ImGui::SetColumnWidth(0, 60);
+            ImGui::SetColumnWidth(1, 150);
+            ImGui::SetColumnWidth(2, 70);
+            // ImGui::SetColumnWidth(3, 20);
+            for(int i = 0; i < thermalZones.size(); i++)
+            {
+                ImGui::Text("%s", thermalZones[i].first); ImGui::NextColumn();
+                ImGui::ProgressBar(jTemp[i]/thermalZones[i].second, ImVec2(-1, 15), buf); ImGui::NextColumn();
+                ImGui::Text("%.1f/%.0f", jTemp[i], thermalZones[i].second); ImGui::NextColumn();
+                ImGui::Text("°C"); ImGui::NextColumn();
+            }
+
+            ImGui::EndChild();
+        }
+    }
+    else if(selectedTab == 4)
+    {
+        static int selected = 0;
+        ImGui::Text("Jetson"); ImGui::SameLine(100);
+        ImGui::InputInt("message", &selected);
+        {
+            ImGui::BeginChild("Jetsons", ImGui::GetContentRegionAvail(), true, 0);
+            ImGui::Text("name:        %s", system->get_msg().status[selected].name.c_str());
+            ImGui::Text("message:     %s", system->get_msg().status[selected].message.c_str());
+            ImGui::Text("hardware_id: %s", system->get_msg().status[selected].hardware_id.c_str());
+            ImGui::Text("values");
+            for(int i = 0; i<system->get_msg().status[selected].values.size(); i++)
+            {
+                ImGui::Text("key: %s", system->get_msg().status[selected].values[i].key.c_str()); ImGui::SameLine();
+                ImGui::Text("value: %s", system->get_msg().status[selected].values[i].value.c_str());
+            }
+            // ImGui::Text("CPU: %d", system->get_msg().status[1]);
+            
 
             ImGui::EndChild();
         }
@@ -1273,6 +1426,390 @@ void SamMonitorWidget::callbackCharge(const sam_msgs::ConsumedChargeArray& msg)
     {
         circuitCharges[msg.array[i].circuit_id] = msg.array[i].charge;
     }
+}
+void SamMonitorWidget::service_callback(const uavcan_ros_bridge::UavcanRestartNode::Response& res, bool result)
+{
+    //topics = res.topics;
+    // topics.clear();
+    // std::copy_if(res.topics.begin(), res.topics.end(), std::back_inserter(topics), [](const std::string& s){return s.find("compressedDepth") == std::string::npos;});
+}
+void SamMonitorWidget::callbackSystem(const diagnostic_msgs::DiagnosticArray& msg)
+{
+    lastSystemUpdate = msg.header.stamp.sec;
+    for(int i = 0; i < msg.status.size(); i++)
+    {
+        if(strcmp(msg.status[i].name.c_str(), "jetson_stats cpu CPU1") == 0)
+        {
+            int freq = 0;
+            int div = 1;
+            for(int j = 0; j < msg.status[i].values.size(); j++)
+            {
+                if(strcmp(msg.status[i].values[j].key.c_str(), "Val") == 0)
+                {
+                    cpu[0].first = std::stoi(msg.status[i].values[j].value);
+                }
+                else if(strcmp(msg.status[i].values[j].key.c_str(), "Freq") == 0)
+                {
+                    freq = std::stoi(msg.status[i].values[j].value);
+                }
+                else if(strcmp(msg.status[i].values[j].key.c_str(), "Unit") == 0)
+                {
+                    if(strcmp(msg.status[i].values[j].value.c_str(), "khz") == 0)
+                    {
+                        div = 1000000;
+                    }
+                    else if(strcmp(msg.status[i].values[j].value.c_str(), "mhz") == 0)
+                    {
+                        div = 1000;
+                    }
+                }
+            }
+            cpu[0].second = (float)freq/div;
+        }
+        else if(strcmp(msg.status[i].name.c_str(), "jetson_stats cpu CPU2") == 0)
+        {
+            int freq = 0;
+            int div = 1;
+            for(int j = 0; j < msg.status[i].values.size(); j++)
+            {
+                if(strcmp(msg.status[i].values[j].key.c_str(), "Val") == 0)
+                {
+                    cpu[1].first = std::stoi(msg.status[i].values[j].value);
+                }
+                else if(strcmp(msg.status[i].values[j].key.c_str(), "Freq") == 0)
+                {
+                    freq = std::stoi(msg.status[i].values[j].value);
+                }
+                else if(strcmp(msg.status[i].values[j].key.c_str(), "Unit") == 0)
+                {
+                    if(strcmp(msg.status[i].values[j].value.c_str(), "khz") == 0)
+                    {
+                        div = 1000000;
+                    }
+                    else if(strcmp(msg.status[i].values[j].value.c_str(), "mhz") == 0)
+                    {
+                        div = 1000;
+                    }
+                }
+            }
+            cpu[1].second = (float)freq/div;
+        }
+        else if(strcmp(msg.status[i].name.c_str(), "jetson_stats cpu CPU3") == 0)
+        {
+            int freq = 0;
+            int div = 1;
+            for(int j = 0; j < msg.status[i].values.size(); j++)
+            {
+                if(strcmp(msg.status[i].values[j].key.c_str(), "Val") == 0)
+                {
+                    cpu[2].first = std::stoi(msg.status[i].values[j].value);
+                }
+                else if(strcmp(msg.status[i].values[j].key.c_str(), "Freq") == 0)
+                {
+                    freq = std::stoi(msg.status[i].values[j].value);
+                }
+                else if(strcmp(msg.status[i].values[j].key.c_str(), "Unit") == 0)
+                {
+                    if(strcmp(msg.status[i].values[j].value.c_str(), "khz") == 0)
+                    {
+                        div = 1000000;
+                    }
+                    else if(strcmp(msg.status[i].values[j].value.c_str(), "mhz") == 0)
+                    {
+                        div = 1000;
+                    }
+                }
+            }
+            cpu[2].second = (float)freq/div;
+        }
+        else if(strcmp(msg.status[i].name.c_str(), "jetson_stats cpu CPU4") == 0)
+        {
+            int freq = 0;
+            int div = 1;
+            for(int j = 0; j < msg.status[i].values.size(); j++)
+            {
+                if(strcmp(msg.status[i].values[j].key.c_str(), "Val") == 0)
+                {
+                    cpu[3].first = std::stoi(msg.status[i].values[j].value);
+                }
+                else if(strcmp(msg.status[i].values[j].key.c_str(), "Freq") == 0)
+                {
+                    freq = std::stoi(msg.status[i].values[j].value);
+                }
+                else if(strcmp(msg.status[i].values[j].key.c_str(), "Unit") == 0)
+                {
+                    if(strcmp(msg.status[i].values[j].value.c_str(), "khz") == 0)
+                    {
+                        div = 1000000;
+                    }
+                    else if(strcmp(msg.status[i].values[j].value.c_str(), "mhz") == 0)
+                    {
+                        div = 1000;
+                    }
+                }
+            }
+            cpu[3].second = (float)freq/div;
+        }
+        else if(strcmp(msg.status[i].name.c_str(), "jetson_stats cpu CPU5") == 0)
+        {
+            int freq = 0;
+            int div = 1;
+            for(int j = 0; j < msg.status[i].values.size(); j++)
+            {
+                if(strcmp(msg.status[i].values[j].key.c_str(), "Val") == 0)
+                {
+                    cpu[4].first = std::stoi(msg.status[i].values[j].value);
+                }
+                else if(strcmp(msg.status[i].values[j].key.c_str(), "Freq") == 0)
+                {
+                    freq = std::stoi(msg.status[i].values[j].value);
+                }
+                else if(strcmp(msg.status[i].values[j].key.c_str(), "Unit") == 0)
+                {
+                    if(strcmp(msg.status[i].values[j].value.c_str(), "khz") == 0)
+                    {
+                        div = 1000000;
+                    }
+                    else if(strcmp(msg.status[i].values[j].value.c_str(), "mhz") == 0)
+                    {
+                        div = 1000;
+                    }
+                }
+            }
+            cpu[4].second = (float)freq/div;
+        }
+        else if(strcmp(msg.status[i].name.c_str(), "jetson_stats cpu CPU6") == 0)
+        {
+            int freq = 0;
+            int div = 1;
+            for(int j = 0; j < msg.status[i].values.size(); j++)
+            {
+                if(strcmp(msg.status[i].values[j].key.c_str(), "Val") == 0)
+                {
+                    cpu[5].first = std::stoi(msg.status[i].values[j].value);
+                }
+                else if(strcmp(msg.status[i].values[j].key.c_str(), "Freq") == 0)
+                {
+                    freq = std::stoi(msg.status[i].values[j].value);
+                }
+                else if(strcmp(msg.status[i].values[j].key.c_str(), "Unit") == 0)
+                {
+                    if(strcmp(msg.status[i].values[j].value.c_str(), "khz") == 0)
+                    {
+                        div = 1000000;
+                    }
+                    else if(strcmp(msg.status[i].values[j].value.c_str(), "mhz") == 0)
+                    {
+                        div = 1000;
+                    }
+                }
+            }
+            cpu[5].second = (float)freq/div;
+        }
+        else if(strcmp(msg.status[i].name.c_str(), "jetson_stats cpu CPU7") == 0)
+        {
+            int freq = 0;
+            int div = 1;
+            for(int j = 0; j < msg.status[i].values.size(); j++)
+            {
+                if(strcmp(msg.status[i].values[j].key.c_str(), "Val") == 0)
+                {
+                    cpu[6].first = std::stoi(msg.status[i].values[j].value);
+                }
+                else if(strcmp(msg.status[i].values[j].key.c_str(), "Freq") == 0)
+                {
+                    freq = std::stoi(msg.status[i].values[j].value);
+                }
+                else if(strcmp(msg.status[i].values[j].key.c_str(), "Unit") == 0)
+                {
+                    if(strcmp(msg.status[i].values[j].value.c_str(), "khz") == 0)
+                    {
+                        div = 1000000;
+                    }
+                    else if(strcmp(msg.status[i].values[j].value.c_str(), "mhz") == 0)
+                    {
+                        div = 1000;
+                    }
+                }
+            }
+            cpu[6].second = (float)freq/div;
+        }
+        else if(strcmp(msg.status[i].name.c_str(), "jetson_stats cpu CPU8") == 0)
+        {
+            int freq = 0;
+            int div = 1;
+            for(int j = 0; j < msg.status[i].values.size(); j++)
+            {
+                if(strcmp(msg.status[i].values[j].key.c_str(), "Val") == 0)
+                {
+                    cpu[7].first = std::stoi(msg.status[i].values[j].value);
+                }
+                else if(strcmp(msg.status[i].values[j].key.c_str(), "Freq") == 0)
+                {
+                    freq = std::stoi(msg.status[i].values[j].value);
+                }
+                else if(strcmp(msg.status[i].values[j].key.c_str(), "Unit") == 0)
+                {
+                    if(strcmp(msg.status[i].values[j].value.c_str(), "khz") == 0)
+                    {
+                        div = 1000000;
+                    }
+                    else if(strcmp(msg.status[i].values[j].value.c_str(), "mhz") == 0)
+                    {
+                        div = 1000;
+                    }
+                }
+            }
+            cpu[7].second = (float)freq/div;
+        }
+        else if(strcmp(msg.status[i].name.c_str(), "jetson_stats gpu") == 0)
+        {
+            int freq = 0;
+            int div = 1;
+            for(int j = 0; j < msg.status[i].values.size(); j++)
+            {
+                if(strcmp(msg.status[i].values[j].key.c_str(), "Val") == 0)
+                {
+                    gpu.first = std::stoi(msg.status[i].values[j].value);
+                }
+                else if(strcmp(msg.status[i].values[j].key.c_str(), "Freq") == 0)
+                {
+                    freq = std::stoi(msg.status[i].values[j].value);
+                }
+                else if(strcmp(msg.status[i].values[j].key.c_str(), "Unit") == 0)
+                {
+                    if(strcmp(msg.status[i].values[j].value.c_str(), "khz") == 0)
+                    {
+                        div = 1000;
+                    }
+                    else if(strcmp(msg.status[i].values[j].value.c_str(), "mhz") == 0)
+                    {
+                        div = 1;
+                    }
+                }
+            }
+            gpu.second = (float)freq/div;
+        }
+        else if(strcmp(msg.status[i].name.c_str(), "jetson_stats mem ram") == 0)
+        {
+            int use = 0;
+            int tot = 1;
+            int div = 1;
+            for(int j = 0; j < msg.status[i].values.size(); j++)
+            {
+                if(strcmp(msg.status[i].values[j].key.c_str(), "Use") == 0)
+                {
+                    use = std::stoi(msg.status[i].values[j].value);
+                }
+                else if(strcmp(msg.status[i].values[j].key.c_str(), "Total") == 0)
+                {
+                    tot = std::stoi(msg.status[i].values[j].value);
+                }
+                else if(strcmp(msg.status[i].values[j].key.c_str(), "Unit") == 0)
+                {
+                    if(strcmp(msg.status[i].values[j].value.c_str(), "kB") == 0)
+                    {
+                        div = 1000000;
+                    }
+                    else if(strcmp(msg.status[i].values[j].value.c_str(), "MB") == 0)
+                    {
+                        div = 1000;
+                    }
+                }
+            }
+            ram.first = (float)use/div;
+            ram.second = (float)tot/div;
+        }
+        else if(strcmp(msg.status[i].name.c_str(), "jetson_stats temp") == 0)
+        {
+            for(int j = 0; j < msg.status[i].values.size(); j++)
+            {
+                if(strcmp(msg.status[i].values[j].key.c_str(), "Tdiode") == 0)
+                {
+                    jTemp[0] = std::stof(msg.status[i].values[j].value);
+                }
+                else if(strcmp(msg.status[i].values[j].key.c_str(), "AO") == 0)
+                {
+                    jTemp[1] = std::stof(msg.status[i].values[j].value);
+                }
+                else if(strcmp(msg.status[i].values[j].key.c_str(), "iwlwifi") == 0)
+                {
+                    jTemp[2] = std::stof(msg.status[i].values[j].value);
+                }
+                else if(strcmp(msg.status[i].values[j].key.c_str(), "thermal") == 0)
+                {
+                    jTemp[3] = std::stof(msg.status[i].values[j].value);
+                }
+                else if(strcmp(msg.status[i].values[j].key.c_str(), "AUX") == 0)
+                {
+                    jTemp[4] = std::stof(msg.status[i].values[j].value);
+                }
+                else if(strcmp(msg.status[i].values[j].key.c_str(), "GPU") == 0)
+                {
+                    jTemp[5] = std::stof(msg.status[i].values[j].value);
+                }
+                else if(strcmp(msg.status[i].values[j].key.c_str(), "Tboard") == 0)
+                {
+                    jTemp[6] = std::stof(msg.status[i].values[j].value);
+                }
+                else if(strcmp(msg.status[i].values[j].key.c_str(), "CPU") == 0)
+                {
+                    jTemp[7] = std::stof(msg.status[i].values[j].value);
+                }
+            }
+
+        }
+    }
+    // const int mainListLimit = 100;
+    // const int errorListLimit = 50;
+    // const int warningListLimit = 50;
+    // const int btListLimit = 50;
+    
+    // const uint8_t msgLevel = msg.level;
+    // const bool aboutRosBridge = strcmp(msg.name.c_str(), "/sam/rosbridge_websocket") == 0 ? true : false;
+
+    // if(!aboutRosBridge || msgLevel >= 4)
+    // {
+    //     mainLogList.push_front(msg);
+    //     const int mainListOversize = mainLogList.size() - mainListLimit;
+    //     for(int i = 0; i < mainListOversize; i++)
+    //     {
+    //         mainLogList.pop_back();
+    //     }
+    // }
+
+    // const bool errorLog = msgLevel >= 8 ? true : false;
+    // if(errorLog)
+    // {
+    //     errorLogList.push_front(msg);
+    //     const int errorListOversize = errorLogList.size() - errorListLimit;
+    //     for(int i = 0; i < errorListOversize; i++)
+    //     {
+    //         errorLogList.pop_back();
+    //     }
+    // }
+
+    // const bool warningLog = msgLevel == 4 ? true : false;
+    // if(warningLog)
+    // {
+    //     warningLogList.push_front(msg);
+    //     const int warningListOversize = warningLogList.size() - warningListLimit;
+    //     for(int i = 0; i < warningListOversize; i++)
+    //     {
+    //         warningLogList.pop_back();
+    //     }
+    // }
+
+    // const bool aboutBT = strcmp(msg.name.c_str(), "/sam/sam_bt") == 0 ? true : false;
+    // if(aboutBT)
+    // {
+    //     btLogList.push_front(msg);
+    //     const int btListOversize = btLogList.size() - btListLimit;
+    //     for(int i = 0; i < btListOversize; i++)
+    //     {
+    //         btLogList.pop_back();
+    //     }
+    // }
 }
 // -------------------------------------- SamMonitorWidget end --------------------------------------
 
@@ -1319,9 +1856,9 @@ std::pair<ImVec4, const char*> circuitModeToColoredString(const std::uint8_t mod
 {
     static const std::unordered_map<std::uint8_t, std::pair<ImVec4, const char*>> map
     {
-        { 99, { ImVec4(0.0f, 0.71f, 0.06f, 1.00f),   "GOOD" }},     // Green (dirty)
+        { 0, { ImVec4(0.0f, 0.71f, 0.06f, 1.00f),   "GOOD" }},     // Green (dirty)
         { 1, { ImVec4(1.0f, 0.0f, 0.0f, 1.00f), "OVERVOLTAGE" }},   // Red
-        { 0, { ImVec4(1.0f, 0.0f, 0.0f, 1.00f), "UNDERVOLTAGE" }},  // Red
+        { 2, { ImVec4(1.0f, 0.0f, 0.0f, 1.00f), "UNDERVOLTAGE" }},  // Red
         { 4, { ImVec4(1.0f, 0.0f, 0.0f, 1.00f), "OVERCURRENT" }},   // Red
         { 8, { ImVec4(1.0f, 0.0f, 0.0f, 1.00f), "UNDERCURRENT" }}   // Red
     };
@@ -1339,22 +1876,37 @@ std::pair<ImVec4, const char*> circuitModeToColoredString(const std::uint8_t mod
 SamLogWidget::SamLogWidget(roswasm::NodeHandle* nh)
 {
     // subLog = nh->subscribe<rosgraph_msgs::Log>("/rosout_agg", std::bind(&SamLogWidget::callbackLog, this, std::placeholders::_1), 10);
-    subLog = nh->subscribe<rosgraph_msgs::Log>("/rosout", std::bind(&SamLogWidget::callbackLog, this, std::placeholders::_1), 10);
+
+    // subLog = nh->subscribe<rosgraph_msgs::Log>("/rosout", std::bind(&SamLogWidget::callbackLog, this, std::placeholders::_1), 10);
+    nhLocal = nh;
+    subLog = nullptr;
 }
 void SamLogWidget::show_window(bool& show_roslog_window, bool guiDebug)
 {
     // ImGuiIO& io = ImGui::GetIO();
     // ImVec4 col = ImGui::GetStyle().Colors[23];
 
+    
+    if(logEnable && subLog == nullptr)
+    {
+        subLog = nhLocal->subscribe<rosgraph_msgs::Log>("/rosout", std::bind(&SamLogWidget::callbackLog, this, std::placeholders::_1), 10);
+    }
+    else if(!logEnable && subLog != nullptr)
+    {
+        delete subLog;
+        subLog = nullptr;
+    }
     ImGui::SetNextWindowSize(ImVec2(472, 400), ImGuiCond_FirstUseEver);
     ImGui::Begin("Log", &show_roslog_window);
+
+    ImGui::Checkbox("Enable", &logEnable); ImGui::SameLine();
 
     // std::chrono::system_clock::time_point tp = std::chrono::system_clock::now();
     // std::chrono::system_clock::duration dtn = tp.time_since_epoch();
     // uint32_t current_time_epoch = dtn.count() * std::chrono::system_clock::period::num / std::chrono::system_clock::period::den;
 
     static int selectedTab = 0;
-    const std::vector<const char*> tabNames{"All", "Error", "Warning", "UAVCAN", "Other"};
+    const std::vector<const char*> tabNames{"All", "Error", "Warning", "UAVCAN"};
     for (int i = 0; i < tabNames.size(); i++)
     {
         if (i > 0) ImGui::SameLine();
@@ -1496,7 +2048,7 @@ void SamLogWidget::show_window(bool& show_roslog_window, bool guiDebug)
             ImGui::EndChild();
         }
     }
-    else if(selectedTab == 4)
+    else if(selectedTab == 5)
     {
         {
             ImGui::BeginChild("btLog", ImVec2(600, 200), true, 0);
@@ -1642,27 +2194,61 @@ void SamTeleopWidget::show_window(bool& show_teleop_window)
     ImGuiIO& io = ImGui::GetIO();
     ImVec4 col = ImGui::GetStyle().Colors[23];
 
-    ImGui::SetNextWindowSize(ImVec2(472, 80), ImGuiCond_FirstUseEver);
+    ImGui::SetNextWindowSize(ImVec2(400, 100), ImGuiCond_FirstUseEver);
     ImGui::Begin("Keyboard teleop", &show_teleop_window);
 
     angles_msg.thruster_vertical_radians = angles_msg.thruster_horizontal_radians = 0.0f;
     rpm_msg.thruster_front.rpm = rpm_msg.thruster_back.rpm = 0;
+    static int teleopRPM = 800;
 
     float sz = ImGui::GetTextLineHeight();
-    ImGui::BeginGroup();
-    ImGui::BeginGroup();
-    ImGui::Dummy(ImVec2(sz, 0.75f*sz));
-    ImGui::Checkbox("Teleop enabled", &enabled);
-    if (enabled && pub_timer == nullptr) {
-        pub_timer = new roswasm::Timer(0.08, std::bind(&SamTeleopWidget::pub_callback, this, std::placeholders::_1));
+    ImGui::Columns(2, "teleopControls", false);
+    ImGui::SetColumnWidth(0, 200);
+    {
+        ImGui::Checkbox("Teleop enabled", &enabled);
+        if (enabled && pub_timer == nullptr) {
+            pub_timer = new roswasm::Timer(0.08, std::bind(&SamTeleopWidget::pub_callback, this, std::placeholders::_1));
+        }
+        else if (!enabled && pub_timer != nullptr) {
+            delete pub_timer;
+            pub_timer = nullptr;
+        }
     }
-    else if (!enabled && pub_timer != nullptr) {
-        delete pub_timer;
-        pub_timer = nullptr;
+    ImGui::NextColumn();
+    {
+        const int rpmCap = 1500;
+        ImGui::SliderInt("rpm", &teleopRPM, 0, rpmCap); //, "%d", ImGuiSliderFlags_AlwaysClamp);  <-------------------- TODO: upgrade when imgui upgraded
+        if(teleopRPM < 0)   // <-------------------- TODO: upgrade when imgui upgraded
+        {
+            teleopRPM = 0;
+        }
+        else if(teleopRPM > rpmCap)   // <-------------------- TODO: upgrade when imgui upgraded
+        {
+            teleopRPM = rpmCap;
+        }
+        char rpmToolTip[100];
+        sprintf(rpmToolTip, "Set teleop rpm command\n"
+                        "Capped @ %d rpm\n"
+                        "CTRL+click to input value", rpmCap);
+        ImGui::SameLine(); HelpMarker(rpmToolTip);
     }
-    ImGui::EndGroup();
+    ImGui::NextColumn();
+    // ImGui::Columns(1);
+    ImGui::BeginGroup();
+    // ImGui::BeginGroup();
+    // ImGui::BeginChild("mainLogUnfiltered", ImVec2(600, 200), true, 0);
+    // ImGui::Dummy(ImVec2(sz, 0.75f*sz));
+    // ImGui::Checkbox("Teleop enabled", &enabled);
+    // if (enabled && pub_timer == nullptr) {
+    //     pub_timer = new roswasm::Timer(0.08, std::bind(&SamTeleopWidget::pub_callback, this, std::placeholders::_1));
+    // }
+    // else if (!enabled && pub_timer != nullptr) {
+    //     delete pub_timer;
+    //     pub_timer = nullptr;
+    // }
+    // ImGui::EndGroup();
 
-    ImGui::SameLine();
+    // ImGui::SameLine();
 
     ImGui::BeginGroup();
     ImGui::Dummy(ImVec2(sz, 1.5f*sz));
@@ -1722,7 +2308,9 @@ void SamTeleopWidget::show_window(bool& show_teleop_window)
     ImGui::Text("Thrust Vector");
     ImGui::EndGroup();
 
-    ImGui::SameLine();
+    // ImGui::SameLine();
+    ImGui::NextColumn();
+
 
     ImGui::BeginGroup();
     key_down = enabled && io.KeysDownDuration[87] >= 0.0f;
@@ -1730,8 +2318,8 @@ void SamTeleopWidget::show_window(bool& show_teleop_window)
         ImGui::PushStyleColor(ImGuiCol_Button, col);
     }
     if (ImGui::Button("w") || key_down) {
-        rpm_msg.thruster_front.rpm = 500;
-        rpm_msg.thruster_back.rpm = 500;
+        rpm_msg.thruster_front.rpm = teleopRPM;
+        rpm_msg.thruster_back.rpm = teleopRPM;
     }
     if (key_down) {
         ImGui::PopStyleColor();   
@@ -1741,8 +2329,8 @@ void SamTeleopWidget::show_window(bool& show_teleop_window)
         ImGui::PushStyleColor(ImGuiCol_Button, col);
     }
     if (ImGui::Button("s") || key_down) {
-        rpm_msg.thruster_front.rpm = -500;
-        rpm_msg.thruster_back.rpm = -500;
+        rpm_msg.thruster_front.rpm = -teleopRPM;
+        rpm_msg.thruster_back.rpm = -teleopRPM;
     }
     if (key_down) {
         ImGui::PopStyleColor();   
@@ -1755,6 +2343,7 @@ void SamTeleopWidget::show_window(bool& show_teleop_window)
     ImGui::Text("Reverse");
     ImGui::EndGroup();
     ImGui::EndGroup();
+    ImGui::Columns(1);
 
     ImGui::End();
 

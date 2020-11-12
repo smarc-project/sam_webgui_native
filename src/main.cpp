@@ -24,7 +24,7 @@
 
 #include <unordered_set>
 
-roswasm::NodeHandle* nh; 
+roswasm::NodeHandle* nh;
 roswasm_webgui::MonlaunchWidget* monlaunch_widget;
 roswasm_webgui::ImageWidget* image_widget;
 roswasm_webgui::SamActuatorWidget* actuator_widget;
@@ -280,7 +280,7 @@ void loop()
         show_actuator_window = true;
         show_dashboard_window = true;
         show_experiment_dash_window = false;
-        show_teleop_window = false;
+        show_teleop_window = true;
         show_monitor_window = false;
         show_roslog_window = true;
       }
@@ -293,6 +293,18 @@ void loop()
         show_dashboard_window = true;
         show_experiment_dash_window = false;
         show_teleop_window = false;
+        show_monitor_window = true;
+        show_roslog_window = true;
+      }
+      else if (guiMode == 300)  // Control
+      {
+        show_demo_window = false;
+        show_monlaunch_window = false;
+        show_image_window = true;
+        show_actuator_window = false;
+        show_dashboard_window = true;
+        show_experiment_dash_window = false;
+        show_teleop_window = true;
         show_monitor_window = true;
         show_roslog_window = true;
       }
@@ -423,7 +435,7 @@ void loop()
   }
 
   if (show_teleop_window) {
-      ImGui::SetNextWindowPos(ImVec2(1072, 500), ImGuiCond_FirstUseEver);
+      ImGui::SetNextWindowPos(ImVec2(winWindth1+2*winSpacing, 820), ImGuiCond_FirstUseEver);
       teleop_widget->show_window(show_teleop_window);
   }
 
@@ -584,7 +596,7 @@ extern "C" int main(int argc, char** argv)
   monitor_widget = new roswasm_webgui::SamMonitorWidget(nh);
   roslog_widget = new roswasm_webgui::SamLogWidget(nh);
 
-  panic_pub = nh->advertise<std_msgs::String>("core/panic_cmd");
+  // panic_pub = nh->advertise<std_msgs::String>("core/panic_cmd");
 
   #ifdef __EMSCRIPTEN__
   emscripten_set_main_loop(loop, 20, 1);
