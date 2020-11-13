@@ -512,7 +512,7 @@ SamMonitorWidget::SamMonitorWidget(roswasm::NodeHandle* nh)
     battery = new TopicBuffer<sensor_msgs::BatteryState>(nh, "core/battery_fb");
     circuit = new TopicBuffer<sam_msgs::CircuitStatusStampedArray>(nh, "core/circuit_status_array_fb");
     subCharge = nh->subscribe<sam_msgs::ConsumedChargeArray>("core/consumed_charge_array_fb", std::bind(&SamMonitorWidget::callbackCharge, this, std::placeholders::_1), 10);
-    charge = new TopicBuffer<sam_msgs::ConsumedChargeArray>(nh, "core/consumed_charge_array_fb");
+    batteryService = nh->serviceClient<sam_msgs::UavcanUpdateBattery>("/sam/core/uavcan_update_battery", std::bind(&SamMonitorWidget::batteryCallback, this, std::placeholders::_1, std::placeholders::_2));
     uavcan = new TopicBuffer<uavcan_ros_bridge::UavcanNodeStatusNamedArray>(nh, "core/uavcan_fb");
     // odom = new TopicBuffer<nav_msgs::Odometry>(nh, "dr/odom", 1000);
     vbs_fb = new TopicBuffer<sam_msgs::PercentStamped>(nh, "core/vbs_fb", 1000);
@@ -605,7 +605,14 @@ void SamMonitorWidget::show_window(bool& show_dashboard_window, bool guiDebug)
             ImGui::Text("%.2f", battery->get_msg().capacity); ImGui::NextColumn();
             // ImGui::Text("UNKNOWN"); ImGui::NextColumn();
             // ImGui::Text("UNKNOWN"); ImGui::NextColumn();
+            
             ImGui::EndChild();
+            ImGui::SameLine();
+            if(ImGui::Button("UPDATE BATTERY", ImVec2(100, 20)))
+            {
+                sam_msgs::UavcanUpdateBattery::Request req;
+                batteryService->call<sam_msgs::UavcanUpdateBattery>(req);
+            }
         }
         ImGui::Columns(2, "rail_split", false);
         ImGui::SetColumnWidth(0, 545);
@@ -1412,8 +1419,6 @@ void SamMonitorWidget::show_window(bool& show_dashboard_window, bool guiDebug)
                 ImGui::Text("value: %s", system->get_msg().status[selected].values[i].value.c_str());
             }
             // ImGui::Text("CPU: %d", system->get_msg().status[1]);
-            
-
             ImGui::EndChild();
         }
     }
@@ -1430,6 +1435,12 @@ void SamMonitorWidget::callbackCharge(const sam_msgs::ConsumedChargeArray& msg)
 void SamMonitorWidget::service_callback(const uavcan_ros_bridge::UavcanRestartNode::Response& res, bool result)
 {
     //topics = res.topics;
+    // topics.clear();
+    // std::copy_if(res.topics.begin(), res.topics.end(), std::back_inserter(topics), [](const std::string& s){return s.find("compressedDepth") == std::string::npos;});
+}
+void SamMonitorWidget::batteryCallback(const sam_msgs::UavcanUpdateBattery::Response& res, bool result)
+{
+    // topics = res.topics;
     // topics.clear();
     // std::copy_if(res.topics.begin(), res.topics.end(), std::back_inserter(topics), [](const std::string& s){return s.find("compressedDepth") == std::string::npos;});
 }

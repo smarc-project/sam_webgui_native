@@ -23,6 +23,7 @@
 #include <sam_msgs/ConsumedChargeFeedback.h>
 #include <sam_msgs/CircuitStatusStampedArray.h>
 #include <sam_msgs/ConsumedChargeArray.h>
+#include <sam_msgs/UavcanUpdateBattery.h>
 
 #include <smarc_msgs/DualThrusterFeedback.h>
 #include <smarc_msgs/DualThrusterRPM.h>
@@ -129,12 +130,13 @@ private:
     roswasm::Subscriber* subCharge;
     void callbackCharge(const sam_msgs::ConsumedChargeArray& msg);
     std::unordered_map<int, float> circuitCharges;
+    roswasm::ServiceClient* batteryService;
+    void batteryCallback(const sam_msgs::UavcanUpdateBattery::Response& res, bool result);
     // std::list<rosgraph_msgs::Log> btLogList;
     // roswasm::Subscriber* subLog;
     // void callbackLog(const rosgraph_msgs::Log& msg);
     // TopicBuffer<sam_msgs::ConsumedChargeFeedback>* charge;
     TopicBuffer<uavcan_ros_bridge::UavcanNodeStatusNamedArray>* uavcan;
-    TopicBuffer<sam_msgs::ConsumedChargeArray>* charge;
     // TopicBuffer<nav_msgs::Odometry>* odom;
     TopicBuffer<sam_msgs::PercentStamped>* vbs_fb;
     TopicBuffer<sam_msgs::PercentStamped>* vbs_cmd;
