@@ -50,6 +50,7 @@
   <build_depend>sdl2_image</build_depend>
   <build_depend>libglfw3-dev</build_depend>
   <build_depend>libglew-dev</build_depend>
+  <build_depend>roswasm_webgui</build_depend>
   <!-- <build_depend>rosmon_msgs</build_depend> -->
   <exec_depend>roscpp</exec_depend>
   <exec_depend>roswasm_native</exec_depend>
