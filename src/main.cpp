@@ -4,13 +4,17 @@
 #include <emscripten.h>
 #endif
 
-#define GLFW_INCLUDE_ES3
-#include <GLES3/gl3.h>
-#include <GLFW/glfw3.h>
-
 #include <roswasm_webgui/imgui/imgui.h>
 #include <roswasm_webgui/imgui/imgui_impl_glfw.h>
 #include <roswasm_webgui/imgui/imgui_impl_opengl3.h>
+
+#ifdef ROSWASM_NATIVE
+#include <GL/glew.h> 
+#else
+#define GLFW_INCLUDE_ES3
+#include <GLES3/gl3.h>
+#endif
+#include <GLFW/glfw3.h>
 
 #include <roswasm/roswasm.h>
 #include <roswasm_webgui/roswasm_monlaunch.h>
@@ -29,10 +33,10 @@ roswasm_webgui::MonlaunchWidget* monlaunch_widget;
 roswasm_webgui::ImageWidget* image_widget;
 roswasm_webgui::SamActuatorWidget* actuator_widget;
 roswasm_webgui::SamDashboardWidget* dashboard_widget;
-roswasm_webgui::SamDashboardWidget2* dashboard_widget2;
+// roswasm_webgui::SamDashboardWidget2* dashboard_widget2;
 roswasm_webgui::SamTeleopWidget* teleop_widget;
-roswasm_webgui::SamMonitorWidget* monitor_widget;
-roswasm_webgui::SamLogWidget* roslog_widget;
+// roswasm_webgui::SamMonitorWidget* monitor_widget;
+// roswasm_webgui::SamLogWidget* roslog_widget;
 
 GLFWwindow* g_window;
 //ImVec4 clear_color = ImVec4(0.45f, 0.55f, 0.60f, 1.00f);
@@ -85,6 +89,7 @@ roswasm::Publisher* panic_pub;
 // Forward declarations
 int drawTabs(int _guiMode, const std::map<int, const char*> _modeMap);
 
+#ifndef ROSWASM_NATIVE
 EM_JS(int, canvas_get_width, (), {
   return Module.canvas.width;
 });
@@ -96,28 +101,40 @@ EM_JS(int, canvas_get_height, (), {
 EM_JS(void, resizeCanvas, (), {
   js_resizeCanvas();
 });
+#endif
 
 void loop()
 {
+    if (glfwWindowShouldClose(g_window)) {
+        roswasm::shutdown();
+        return;
+    }
   // if (publishPanic && panic_pub_timer == nullptr) {
   //   // panic_pub_timer = new roswasm::Timer(0.08, std::bind(&pub_panic_callback, std::placeholders::_1));
   //   panic_pub_timer = new roswasm::Timer(0.08, pub_panic_callback);
   //   // panic_pub_timer = new roswasm::Timer(0.08, std::bind(&pub_panic_callback, this, std::placeholders::_1));
   // }
 
-  int width = canvas_get_width();
-  int height = canvas_get_height();
+#ifndef ROSWASM_NATIVE
+  // int width = canvas_get_width();
+  // int height = canvas_get_height();
+  // glfwSetWindowSize(g_window, width, height);
+    glfwSetWindowSize(g_window, canvas_get_width(), canvas_get_height());
+#endif
+    glfwPollEvents();
 
-  glfwSetWindowSize(g_window, width, height);
-
-  ImGui::SetCurrentContext(imgui);
+  //ImGui::SetCurrentContext(imgui);
 
   ImGui_ImplOpenGL3_NewFrame();
   ImGui_ImplGlfw_NewFrame();
   ImGui::NewFrame();
 
   {
-    ImGui::SetNextWindowPos(ImVec2(width-210, height-70), ImGuiCond_FirstUseEver);
+// #ifndef ROSWASM_NATIVE
+    // ImGui::SetNextWindowPos(ImVec2(width-210, height-70), ImGuiCond_FirstUseEver);
+// #else
+  ImGui::SetNextWindowPos(ImVec2(30, 30), ImGuiCond_FirstUseEver);
+// #endif
     ImGui::SetNextWindowSize(ImVec2(200, 60), ImGuiCond_FirstUseEver);
     ImGui::Begin("Debug");
     ImGui::Checkbox("Debug mode", &guiDebug); ImGui::SameLine(120);
@@ -138,11 +155,19 @@ void loop()
     // ImColor status_color;
     ImVec4 status_color4;
     if (nh->ok()) {
+#ifdef ROSWASM_NATIVE
+            status_text = "ROS OK";
+#else
         status_text = "Connected! " + nh->get_websocket_url();
+#endif
         status_color4 = ImColor(0, 255, 0);
     }
     else {
+#ifdef ROSWASM_NATIVE
+            status_text = "ROS NOT OK!";
+#else
         status_text = "Disconnected! " + nh->get_websocket_url();
+#endif
         status_color4 = ImColor(255, 0, 0);
     }
     // ImVec2 p = ImGui::GetCursorScreenPos();
@@ -163,7 +188,7 @@ void loop()
     // ImGui::Text("Connected");
     ImGui::AlignTextToFramePadding();
 
-    monlaunch_widget->getStates(nodeStates);
+    // monlaunch_widget->getStates(nodeStates);
 
     nodeCrashed = false;
     int nodesCrashed = 0;
@@ -185,7 +210,7 @@ void loop()
     const int availWidth = ImGui::GetContentRegionAvailWidth();
     ImGui::SameLine(availWidth-_buttonWidth+8);
     ImGui::PushID(1);
-    char label[32];
+    char label[50];
     if (nodesTotal){
       // const int _buttonWidth = 150;
       // const int availWidth = ImGui::GetContentRegionAvailWidth();
@@ -429,30 +454,30 @@ void loop()
       dashboard_widget->show_window(show_dashboard_window);
   }
 
-  if (show_experiment_dash_window) {
-      ImGui::SetNextWindowPos(ImVec2(800, 120), ImGuiCond_FirstUseEver);
-      dashboard_widget2->show_window(show_experiment_dash_window);
-  }
+  // if (show_experiment_dash_window) {
+  //     ImGui::SetNextWindowPos(ImVec2(800, 120), ImGuiCond_FirstUseEver);
+  //     dashboard_widget2->show_window(show_experiment_dash_window);
+  // }
 
   if (show_teleop_window) {
       ImGui::SetNextWindowPos(ImVec2(winWindth1+2*winSpacing, 820), ImGuiCond_FirstUseEver);
       teleop_widget->show_window(show_teleop_window);
   }
 
-  if (show_monitor_window) {
-      ImGui::SetNextWindowPos(ImVec2(winSpacing, 280), ImGuiCond_FirstUseEver);
-      monitor_widget->show_window(show_monitor_window, guiDebug);
-  }
+  // if (show_monitor_window) {
+  //     ImGui::SetNextWindowPos(ImVec2(winSpacing, 280), ImGuiCond_FirstUseEver);
+  //     monitor_widget->show_window(show_monitor_window, guiDebug);
+  // }
 
-  if (show_roslog_window) {
-      ImGui::SetNextWindowPos(ImVec2(1072, 500), ImGuiCond_FirstUseEver);
-      roslog_widget->show_window(show_roslog_window, guiDebug);
-  }
+  // if (show_roslog_window) {
+  //     ImGui::SetNextWindowPos(ImVec2(1072, 500), ImGuiCond_FirstUseEver);
+  //     roslog_widget->show_window(show_roslog_window, guiDebug);
+  // }
 
   ImGui::Render();
 
   int display_w, display_h;
-  glfwMakeContextCurrent(g_window);
+  //glfwMakeContextCurrent(g_window);
   glfwGetFramebufferSize(g_window, &display_w, &display_h);
   glViewport(0, 0, display_w, display_h);
   if (dashboard_widget->is_emergency()) {
@@ -465,7 +490,13 @@ void loop()
   glClear(GL_COLOR_BUFFER_BIT);
 
   ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
-  glfwMakeContextCurrent(g_window);
+  //glfwMakeContextCurrent(g_window);
+  glfwSwapBuffers(g_window);
+}
+
+static void glfw_error_callback(int error, const char* description)
+{
+  fprintf(stderr, "Glfw Error %d: %s\n", error, description);
 }
 
 int drawTabs(int _guiMode, const std::map<int, const char*> _modeMap){
@@ -503,6 +534,7 @@ int drawTabs(int _guiMode, const std::map<int, const char*> _modeMap){
 
 int init()
 {
+  glfwSetErrorCallback(glfw_error_callback);
   if( !glfwInit() )
   {
       fprintf( stderr, "Failed to initialize GLFW\n" );
@@ -510,7 +542,11 @@ int init()
   }
 
   //glfwWindowHint(GLFW_SAMPLES, 4); // 4x antialiasing
-  glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE); // We don't want the old OpenGL
+  //glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE); // We don't want the old OpenGL
+  // GL 3.0 + GLSL 130
+  const char* glsl_version = "#version 130";
+  glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
+  glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 0);
 
   // Open a window and create its OpenGL context
   int canvasWidth = 800;
@@ -518,20 +554,31 @@ int init()
   g_window = glfwCreateWindow( canvasWidth, canvasHeight, "SAM GUI", NULL, NULL);
   if( g_window == NULL )
   {
-      fprintf( stderr, "Failed to open GLFW window.\n" );
-      glfwTerminate();
-      return -1;
+    fprintf( stderr, "Failed to open GLFW window.\n" );
+    glfwTerminate();
+    return -1;
   }
+
   glfwMakeContextCurrent(g_window); // Initialize GLEW
+
+
+#ifdef ROSWASM_NATIVE
+    glfwSwapInterval(1); // Enable vsync
+
+    // Initialize OpenGL loader
+    bool err = glewInit() != GLEW_OK;
+    if (err)
+    {
+        fprintf(stderr, "Failed to initialize OpenGL loader!\n");
+        return 1;
+    }
+#endif
 
   // Create game objects
   // Setup Dear ImGui binding
   IMGUI_CHECKVERSION();
   ImGui::CreateContext();
-  ImGuiIO& io = ImGui::GetIO();
-
-  ImGui_ImplGlfw_InitForOpenGL(g_window, false);
-  ImGui_ImplOpenGL3_Init();
+  ImGuiIO& io = ImGui::GetIO(); (void)io;
 
   // Setup style
   // ImGui::StyleColorsLight();
@@ -543,6 +590,11 @@ int init()
         ImGui::StyleColorsLight();
       }
 
+  //ImGui_ImplGlfw_InitForOpenGL(g_window, false);
+  ImGui_ImplGlfw_InitForOpenGL(g_window, true);
+  //ImGui_ImplOpenGL3_Init();
+  ImGui_ImplOpenGL3_Init(glsl_version);
+
   // Load Fonts
   io.Fonts->AddFontDefault();
   /*
@@ -552,32 +604,44 @@ int init()
   io.Fonts->AddFontFromFileTTF("data/xkcd-script.ttf", 32.0f);
   */
 
-  imgui =  ImGui::GetCurrentContext();
+  //imgui =  ImGui::GetCurrentContext();
 
   // Cursor callbacks
+  /*
   glfwSetMouseButtonCallback(g_window, ImGui_ImplGlfw_MouseButtonCallback);
   glfwSetScrollCallback(g_window, ImGui_ImplGlfw_ScrollCallback);
   glfwSetKeyCallback(g_window, ImGui_ImplGlfw_KeyCallback);
   glfwSetCharCallback(g_window, ImGui_ImplGlfw_CharCallback);
+  */
 
+#ifndef ROSWASM_NATIVE
   resizeCanvas();
+#endif
 
   // panic_pub = nh->advertise<std_msgs::String>("core/panic_cmd");
-
   return 0;
 }
 
-
 void quit()
 {
+  // Cleanup
+  ImGui_ImplOpenGL3_Shutdown();
+  ImGui_ImplGlfw_Shutdown();
+  ImGui::DestroyContext();
+
+  glfwDestroyWindow(g_window);
   glfwTerminate();
 }
-
 
 extern "C" int main(int argc, char** argv)
 {
   if (init() != 0) return 1;
 
+  roswasm::init(argc, argv, "roswasm_webgui");
+
+#ifdef ROSWASM_NATIVE
+  nh = new roswasm::NodeHandle();
+#else
   if (argc < 3) {
       printf("Rosbridge server ip and port not provided!");
       return 1;
@@ -585,22 +649,27 @@ extern "C" int main(int argc, char** argv)
 
   std::string rosbridge_ip(argv[1]);
   std::string rosbridge_port(argv[2]);
-
   nh = new roswasm::NodeHandle(rosbridge_ip, rosbridge_port);
-  monlaunch_widget = new roswasm_webgui::MonlaunchWidget(nh);
-  image_widget = new roswasm_webgui::ImageWidget(nh);
-  actuator_widget = new roswasm_webgui::SamActuatorWidget(nh);
-  dashboard_widget = new roswasm_webgui::SamDashboardWidget(nh);
-  dashboard_widget2 = new roswasm_webgui::SamDashboardWidget2(nh);
-  teleop_widget = new roswasm_webgui::SamTeleopWidget(nh);
-  monitor_widget = new roswasm_webgui::SamMonitorWidget(nh);
-  roslog_widget = new roswasm_webgui::SamLogWidget(nh);
+#endif
+
+  monlaunch_widget = new roswasm_webgui::MonlaunchWidget(*nh);
+  image_widget = new roswasm_webgui::ImageWidget(*nh);
+  actuator_widget = new roswasm_webgui::SamActuatorWidget(*nh);
+  dashboard_widget = new roswasm_webgui::SamDashboardWidget(*nh);
+  // dashboard_widget2 = new roswasm_webgui::SamDashboardWidget2(*nh);
+  teleop_widget = new roswasm_webgui::SamTeleopWidget(*nh);
+  // monitor_widget = new roswasm_webgui::SamMonitorWidget(*nh);
+  // roslog_widget = new roswasm_webgui::SamLogWidget(*nh);
 
   // panic_pub = nh->advertise<std_msgs::String>("core/panic_cmd");
 
-  #ifdef __EMSCRIPTEN__
-  emscripten_set_main_loop(loop, 20, 1);
-  #endif
+  // #ifdef __EMSCRIPTEN__
+  // emscripten_set_main_loop(loop, 20, 1);
+  // #endif
+
+  roswasm::Duration loop_rate(1./20.);
+  roswasm::spinLoop(loop, loop_rate);
+  //roswasm::spinLoop(loop);
 
   quit();
 
