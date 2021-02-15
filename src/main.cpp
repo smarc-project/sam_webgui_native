@@ -35,8 +35,8 @@ roswasm_webgui::SamActuatorWidget* actuator_widget;
 roswasm_webgui::SamDashboardWidget* dashboard_widget;
 // roswasm_webgui::SamDashboardWidget2* dashboard_widget2;
 roswasm_webgui::SamTeleopWidget* teleop_widget;
-// roswasm_webgui::SamMonitorWidget* monitor_widget;
-// roswasm_webgui::SamLogWidget* roslog_widget;
+roswasm_webgui::SamMonitorWidget* monitor_widget;
+roswasm_webgui::SamLogWidget* roslog_widget;
 
 GLFWwindow* g_window;
 //ImVec4 clear_color = ImVec4(0.45f, 0.55f, 0.60f, 1.00f);
@@ -116,10 +116,10 @@ void loop()
   // }
 
 #ifndef ROSWASM_NATIVE
-  // int width = canvas_get_width();
-  // int height = canvas_get_height();
-  // glfwSetWindowSize(g_window, width, height);
-    glfwSetWindowSize(g_window, canvas_get_width(), canvas_get_height());
+  int width = canvas_get_width();
+  int height = canvas_get_height();
+  glfwSetWindowSize(g_window, width, height);
+    // glfwSetWindowSize(g_window, canvas_get_width(), canvas_get_height());
 #endif
     glfwPollEvents();
 
@@ -130,11 +130,11 @@ void loop()
   ImGui::NewFrame();
 
   {
-// #ifndef ROSWASM_NATIVE
-    // ImGui::SetNextWindowPos(ImVec2(width-210, height-70), ImGuiCond_FirstUseEver);
-// #else
+#ifndef ROSWASM_NATIVE
+    ImGui::SetNextWindowPos(ImVec2(width-210, height-70), ImGuiCond_FirstUseEver);
+#else
   ImGui::SetNextWindowPos(ImVec2(30, 30), ImGuiCond_FirstUseEver);
-// #endif
+#endif
     ImGui::SetNextWindowSize(ImVec2(200, 60), ImGuiCond_FirstUseEver);
     ImGui::Begin("Debug");
     ImGui::Checkbox("Debug mode", &guiDebug); ImGui::SameLine(120);
@@ -188,7 +188,7 @@ void loop()
     // ImGui::Text("Connected");
     ImGui::AlignTextToFramePadding();
 
-    // monlaunch_widget->getStates(nodeStates);
+    monlaunch_widget->getStates(nodeStates);
 
     nodeCrashed = false;
     int nodesCrashed = 0;
@@ -464,15 +464,15 @@ void loop()
       teleop_widget->show_window(show_teleop_window);
   }
 
-  // if (show_monitor_window) {
-  //     ImGui::SetNextWindowPos(ImVec2(winSpacing, 280), ImGuiCond_FirstUseEver);
-  //     monitor_widget->show_window(show_monitor_window, guiDebug);
-  // }
+  if (show_monitor_window) {
+      ImGui::SetNextWindowPos(ImVec2(winSpacing, 280), ImGuiCond_FirstUseEver);
+      monitor_widget->show_window(show_monitor_window, guiDebug);
+  }
 
-  // if (show_roslog_window) {
-  //     ImGui::SetNextWindowPos(ImVec2(1072, 500), ImGuiCond_FirstUseEver);
-  //     roslog_widget->show_window(show_roslog_window, guiDebug);
-  // }
+  if (show_roslog_window) {
+      ImGui::SetNextWindowPos(ImVec2(1072, 500), ImGuiCond_FirstUseEver);
+      roslog_widget->show_window(show_roslog_window, guiDebug);
+  }
 
   ImGui::Render();
 
@@ -658,8 +658,8 @@ extern "C" int main(int argc, char** argv)
   dashboard_widget = new roswasm_webgui::SamDashboardWidget(*nh);
   // dashboard_widget2 = new roswasm_webgui::SamDashboardWidget2(*nh);
   teleop_widget = new roswasm_webgui::SamTeleopWidget(*nh);
-  // monitor_widget = new roswasm_webgui::SamMonitorWidget(*nh);
-  // roslog_widget = new roswasm_webgui::SamLogWidget(*nh);
+  monitor_widget = new roswasm_webgui::SamMonitorWidget(*nh);
+  roslog_widget = new roswasm_webgui::SamLogWidget(*nh);
 
   // panic_pub = nh->advertise<std_msgs::String>("core/panic_cmd");
 

@@ -27,7 +27,7 @@
 #include <sam_msgs/UavcanUpdateBattery.h>
 
 #include <smarc_msgs/DualThrusterFeedback.h>
-// #include <smarc_msgs/DualThrusterRPM.h>
+#include <smarc_msgs/DualThrusterRPM.h>
 #include <smarc_msgs/ThrusterRPM.h>
 #include <smarc_msgs/CTD.h>
 
@@ -47,7 +47,7 @@ namespace roswasm_webgui {
 
 bool draw_ballast_angles(sam_msgs::BallastAngles& msg, roswasm::Publisher& pub);
 bool draw_percent(sam_msgs::PercentStamped& msg, roswasm::Publisher& pub);
-// bool draw_thruster_rpms(smarc_msgs::DualThrusterRPM& msg, roswasm::Publisher& pub);
+bool draw_thruster_rpms(smarc_msgs::DualThrusterRPM& msg, roswasm::Publisher& pub);
 bool draw_thruster_rpm(smarc_msgs::ThrusterRPM& msg, roswasm::Publisher& pub);
 bool draw_thruster_angles(sam_msgs::ThrusterAngles& msg, roswasm::Publisher& pub);
 // // bool draw_bar_signed(sam_msgs::ThrusterAngles& msg, roswasm::Publisher& pub);
@@ -61,8 +61,8 @@ private:
     TopicWidget<sam_msgs::ThrusterAngles>* thruster_angles;
     TopicWidget<smarc_msgs::ThrusterRPM>* thruster1_rpm;
     TopicWidget<smarc_msgs::ThrusterRPM>* thruster2_rpm;
-    // TopicWidget<smarc_msgs::DualThrusterRPM>* thruster_rpms;
-    //roswasm::Publisher* rpm_pub;
+    TopicWidget<smarc_msgs::DualThrusterRPM>* thruster_rpms;
+    roswasm::Publisher rpm_pub;
     roswasm::Publisher rpm1_pub;
     roswasm::Publisher rpm2_pub;
     roswasm::Timer pub_timer;
@@ -93,9 +93,8 @@ private:
     // TopicBuffer<nav_msgs::Odometry>* odom;
     TopicBuffer<sam_msgs::PercentStamped>* vbs_fb;
     TopicBuffer<sam_msgs::PercentStamped>* lcg;
-    // TopicBuffer<smarc_msgs::DualThrusterFeedback>* rpms;
-    TopicBuffer<smarc_msgs::ThrusterRPM>* rpm1;
-    TopicBuffer<smarc_msgs::ThrusterRPM>* rpm2;
+    TopicBuffer<smarc_msgs::DualThrusterFeedback>* rpms;
+    // TopicBuffer<smarc_msgs::ThrusterRPM>* rpm1;rpm1_pub
     TopicBuffer<cola2_msgs::DVL>* dvl;
     TopicBuffer<std_msgs::Float64>* odom_x;
     TopicBuffer<std_msgs::Float64>* odom_y;
@@ -133,78 +132,83 @@ public:
 //     SamDashboardWidget2(roswasm::NodeHandle& nh);
 // };
 
-// // ---------------------------------------- SamMonitorWidget ----------------------------------------
-// class SamMonitorWidget {
-// private:
-//     TopicBuffer<sensor_msgs::BatteryState>* battery;
-//     // TopicBuffer<uavcan_ros_bridge::CircuitStatus>* circuit;
-//     TopicBuffer<sam_msgs::CircuitStatusStampedArray>* circuit;
-//     roswasm::Subscriber* subCharge;
-//     void callbackCharge(const sam_msgs::ConsumedChargeArray& msg);
-//     std::unordered_map<int, float> circuitCharges;
-//     roswasm::ServiceClient* batteryService;
-//     void batteryCallback(const sam_msgs::UavcanUpdateBattery::Response& res, bool result);
-//     // std::list<rosgraph_msgs::Log> btLogList;
-//     // roswasm::Subscriber* subLog;
-//     // void callbackLog(const rosgraph_msgs::Log& msg);
-//     // TopicBuffer<sam_msgs::ConsumedChargeFeedback>* charge;
-//     TopicBuffer<uavcan_ros_bridge::UavcanNodeStatusNamedArray>* uavcan;
-//     // TopicBuffer<nav_msgs::Odometry>* odom;
-//     TopicBuffer<sam_msgs::PercentStamped>* vbs_fb;
-//     TopicBuffer<sam_msgs::PercentStamped>* vbs_cmd;
-//     TopicBuffer<sensor_msgs::FluidPressure>* vbs_pressure;
-//     TopicBuffer<sensor_msgs::Temperature>* vbs_temp;
-//     TopicBuffer<sam_msgs::PercentStamped>* lcg;
-//     TopicBuffer<smarc_msgs::DualThrusterFeedback>* thrusters_fb;
-//     TopicBuffer<smarc_msgs::DualThrusterRPM>* thrusters_cmd;
-//     TopicBuffer<smarc_msgs::CTD>* ctd;
-//     TopicBuffer<cola2_msgs::DVL>* dvl;
-//     roswasm::ServiceClient* first_service;
-//     void service_callback(const uavcan_ros_bridge::UavcanRestartNode::Response& res, bool result);
-//     TopicBuffer<diagnostic_msgs::DiagnosticArray>* system;
-//     roswasm::Subscriber* subSystem;
-//     void callbackSystem(const diagnostic_msgs::DiagnosticArray& msg);
-//     uint32_t lastSystemUpdate = 0;
-//     std::vector<std::pair<int, float>> cpu{{0, 0}, {0, 0}, {0, 0}, {0, 0}, {0, 0}, {0, 0}, {0, 0}, {0, 0}};
-//     std::pair<int, float> gpu{0, 0};
-//     std::pair<float, float> ram{0, 0};
-//     std::vector<float> jTemp{0, 0, 0, 0, 0, 0, 0, 0};
+// ---------------------------------------- SamMonitorWidget ----------------------------------------
+class SamMonitorWidget {
+private:
+    TopicBuffer<sensor_msgs::BatteryState>* battery;
+    // TopicBuffer<uavcan_ros_bridge::CircuitStatus>* circuit;
+    TopicBuffer<sam_msgs::CircuitStatusStampedArray>* circuit;
+    roswasm::Subscriber subCharge;
+    void callbackCharge(const sam_msgs::ConsumedChargeArray& msg);
+    std::unordered_map<int, float> circuitCharges;
+    roswasm::ServiceCallbackClient batteryService;
+    void batteryCallback(const sam_msgs::UavcanUpdateBattery::Response& res, bool result);
+    // std::list<rosgraph_msgs::Log> btLogList;
+    // roswasm::Subscriber* subLog;
+    // void callbackLog(const rosgraph_msgs::Log& msg);
+    // TopicBuffer<sam_msgs::ConsumedChargeFeedback>* charge;
+    TopicBuffer<uavcan_ros_bridge::UavcanNodeStatusNamedArray>* uavcan;
+    // TopicBuffer<nav_msgs::Odometry>* odom;
+    TopicBuffer<sam_msgs::PercentStamped>* vbs_fb;
+    TopicBuffer<sam_msgs::PercentStamped>* vbs_cmd;
+    TopicBuffer<sensor_msgs::FluidPressure>* vbs_pressure;
+    TopicBuffer<sensor_msgs::Temperature>* vbs_temp;
+    TopicBuffer<sam_msgs::PercentStamped>* lcg;
+    TopicBuffer<smarc_msgs::DualThrusterFeedback>* thrusters_fb;
+    TopicBuffer<smarc_msgs::DualThrusterRPM>* thrusters_cmd;
+    TopicBuffer<smarc_msgs::ThrusterRPM>* thruster1_cmd;
+    TopicBuffer<smarc_msgs::ThrusterRPM>* thruster2_cmd;
+    TopicBuffer<smarc_msgs::ThrusterFeedback>* thruster1_fb;
+    TopicBuffer<smarc_msgs::ThrusterFeedback>* thruster2_fb;
+    TopicBuffer<smarc_msgs::CTD>* ctd;
+    TopicBuffer<cola2_msgs::DVL>* dvl;
+    roswasm::ServiceCallbackClient first_service;
+    void service_callback(const uavcan_ros_bridge::UavcanRestartNode::Response& res, bool result);
+    TopicBuffer<diagnostic_msgs::DiagnosticArray>* system;
+    roswasm::Subscriber subSystem;
+    void callbackSystem(const diagnostic_msgs::DiagnosticArray& msg);
+    uint32_t lastSystemUpdate = 0;
+    std::vector<std::pair<int, float>> cpu{{0, 0}, {0, 0}, {0, 0}, {0, 0}, {0, 0}, {0, 0}, {0, 0}, {0, 0}};
+    std::pair<int, float> gpu{0, 0};
+    std::pair<float, float> ram{0, 0};
+    std::vector<float> jTemp{0, 0, 0, 0, 0, 0, 0, 0};
 
-//     TopicBuffer<std_msgs::Float64>* odom_x;
-//     TopicBuffer<std_msgs::Float64>* odom_y;
-//     TopicBuffer<std_msgs::Float64>* depth;
-//     TopicBuffer<std_msgs::Float64>* pitch;
-//     TopicBuffer<std_msgs::Float64>* roll;
-//     TopicBuffer<std_msgs::Float64>* yaw;
-//     TopicBuffer<sensor_msgs::Temperature>* motorTemp;
-//     TopicBuffer<sensor_msgs::FluidPressure>* motorPressure;
-//     TopicBuffer<sbg_driver::SbgEkfEuler>* sbg_euler;
-//     // TopicBuffer<rosgraph_msgs::Log>* log;
-//     const ImVec4 emergency_color = ImVec4(1.0f, 0.0f, 0.0f, 1.00f);
-//     ImVec4 warning_color = ImVec4(0.87f, 0.57f, 0.0f, 1.00f);
-//     ImVec4 good_color = ImVec4(0.0f, 0.71f, 0.06f, 1.00f);
-// public:
-//     void show_window(bool& show_monitor_window, bool guiDebug);
-//     SamMonitorWidget(roswasm::NodeHandle& nh);
-// };
-// // -------------------------------------- SamMonitorWidget end --------------------------------------
+    TopicBuffer<std_msgs::Float64>* odom_x;
+    TopicBuffer<std_msgs::Float64>* odom_y;
+    TopicBuffer<std_msgs::Float64>* depth;
+    TopicBuffer<std_msgs::Float64>* pitch;
+    TopicBuffer<std_msgs::Float64>* roll;
+    TopicBuffer<std_msgs::Float64>* yaw;
+    TopicBuffer<sensor_msgs::Temperature>* motorTemp;
+    TopicBuffer<sensor_msgs::FluidPressure>* motorPressure;
+    TopicBuffer<sbg_driver::SbgEkfEuler>* sbg_euler;
+    // TopicBuffer<rosgraph_msgs::Log>* log;
+    const ImVec4 emergency_color = ImVec4(1.0f, 0.0f, 0.0f, 1.00f);
+    ImVec4 warning_color = ImVec4(0.87f, 0.57f, 0.0f, 1.00f);
+    ImVec4 good_color = ImVec4(0.0f, 0.71f, 0.06f, 1.00f);
+public:
+    void show_window(bool& show_monitor_window, bool guiDebug);
+    SamMonitorWidget(roswasm::NodeHandle& nh);
+};
+// -------------------------------------- SamMonitorWidget end --------------------------------------
 
-// // ---------------------------------------- SamLogWidget ----------------------------------------
-// class SamLogWidget {
-// private:
-//     roswasm::NodeHandle* nhLocal;
-//     std::list<rosgraph_msgs::Log> mainLogList;
-//     std::list<rosgraph_msgs::Log> errorLogList;
-//     std::list<rosgraph_msgs::Log> warningLogList;
-//     std::list<rosgraph_msgs::Log> btLogList;
-//     roswasm::Subscriber* subLog;
-//     void callbackLog(const rosgraph_msgs::Log& msg);
-//     bool logEnable = false;
-// public:
-//     void show_window(bool& show_roslog_window, bool guiDebug);
-//     SamLogWidget(roswasm::NodeHandle& nh);
-// };
-// // -------------------------------------- SamLogWidget end --------------------------------------
+// ---------------------------------------- SamLogWidget ----------------------------------------
+class SamLogWidget {
+private:
+    roswasm::NodeHandle* nhLocal;
+    std::list<rosgraph_msgs::Log> mainLogList;
+    std::list<rosgraph_msgs::Log> errorLogList;
+    std::list<rosgraph_msgs::Log> warningLogList;
+    std::list<rosgraph_msgs::Log> btLogList;
+    roswasm::Subscriber subLog;
+    bool subLogEnabled = false;
+    void callbackLog(const rosgraph_msgs::Log& msg);
+    bool logEnable = false;
+public:
+    void show_window(bool& show_roslog_window, bool guiDebug);
+    SamLogWidget(roswasm::NodeHandle& nh);
+};
+// -------------------------------------- SamLogWidget end --------------------------------------
 
 class SamTeleopWidget {
 private:
@@ -214,8 +218,8 @@ private:
     smarc_msgs::ThrusterRPM rpm2_msg;
     roswasm::Publisher rpm1_pub;
     roswasm::Publisher rpm2_pub;
-    // smarc_msgs::DualThrusterRPM rpm_msg;
-    // roswasm::Publisher* rpm_pub;
+    smarc_msgs::DualThrusterRPM rpm_msg;
+    roswasm::Publisher rpm_pub;
     // roswasm::Publisher* angle_pub;
     roswasm::Publisher angle_pub;
     roswasm::Timer pub_timer;
