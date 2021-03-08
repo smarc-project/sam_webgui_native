@@ -156,7 +156,7 @@ void loop()
     ImVec4 status_color4;
     if (nh->ok()) {
 #ifdef ROSWASM_NATIVE
-            status_text = "ROS OK";
+        status_text = "ROS OK";
 #else
         status_text = "Connected! " + nh->get_websocket_url();
 #endif
@@ -164,7 +164,7 @@ void loop()
     }
     else {
 #ifdef ROSWASM_NATIVE
-            status_text = "ROS NOT OK!";
+        status_text = "ROS NOT OK!";
 #else
         status_text = "Disconnected! " + nh->get_websocket_url();
 #endif
@@ -211,7 +211,7 @@ void loop()
     ImGui::SameLine(availWidth-_buttonWidth+8);
     ImGui::PushID(1);
     char label[50];
-    if (nodesTotal){
+    if (nodesTotal && nh->ok()){
       // const int _buttonWidth = 150;
       // const int availWidth = ImGui::GetContentRegionAvailWidth();
       // ImGui::SameLine();

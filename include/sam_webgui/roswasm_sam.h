@@ -143,6 +143,7 @@ private:
     std::unordered_map<int, float> circuitCharges;
     roswasm::ServiceCallbackClient batteryService;
     void batteryCallback(const sam_msgs::UavcanUpdateBattery::Response& res, bool result);
+    int8_t batteryUpdateResponse = -1;
     // std::list<rosgraph_msgs::Log> btLogList;
     // roswasm::Subscriber* subLog;
     // void callbackLog(const rosgraph_msgs::Log& msg);
@@ -168,6 +169,9 @@ private:
     roswasm::Subscriber subSystem;
     void callbackSystem(const diagnostic_msgs::DiagnosticArray& msg);
     uint32_t lastSystemUpdate = 0;
+    int nvMode = -1;
+    bool jetsonClocks = false;
+    std::string uptime = "";
     std::vector<std::pair<int, float>> cpu{{0, 0}, {0, 0}, {0, 0}, {0, 0}, {0, 0}, {0, 0}, {0, 0}, {0, 0}};
     std::pair<int, float> gpu{0, 0};
     std::pair<float, float> ram{0, 0};

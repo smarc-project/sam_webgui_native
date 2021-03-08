@@ -116,7 +116,7 @@ bool draw_thruster_angles(sam_msgs::ThrusterAngles& msg, roswasm::Publisher& pub
     ImGui::PushID("First cmd slider");
     ImGui::Text("Hori (deg)");
     ImGui::SameLine();
-    float thruster_horizontal_degrees = 0.0;
+    static float thruster_horizontal_degrees = 0.0;
     ImGui::SliderFloat("", &thruster_horizontal_degrees, -9.0f, 9.0f, "%.2f");
     msg.thruster_horizontal_radians = thruster_horizontal_degrees*pi_/180.0;
     if (ImGui::IsItemDeactivatedAfterChange()) {
@@ -133,7 +133,7 @@ bool draw_thruster_angles(sam_msgs::ThrusterAngles& msg, roswasm::Publisher& pub
     ImGui::PushID("Second cmd slider");
     ImGui::Text("Vert (deg)");
     ImGui::SameLine();
-    float thruster_vertical_degrees = 0.0;
+    static float thruster_vertical_degrees = 0.0;
     ImGui::SliderFloat("", &thruster_vertical_degrees, -9.0f, 9.0f, "%.2f");
     msg.thruster_vertical_radians = thruster_vertical_degrees*pi_/180.0;
     if (ImGui::IsItemDeactivatedAfterChange()) {
@@ -342,6 +342,10 @@ void SamDashboardWidget::show_window(bool& show_dashboard_window)
 {
     ImGui::SetNextWindowSize(ImVec2(500, 243), ImGuiCond_FirstUseEver);
     ImGui::Begin("Status dashboard", &show_dashboard_window);
+
+    std::chrono::system_clock::time_point tp = std::chrono::system_clock::now();
+    std::chrono::system_clock::duration dtn = tp.time_since_epoch();
+    uint32_t current_time_epoch = dtn.count() * std::chrono::system_clock::period::num / std::chrono::system_clock::period::den;
     // if (strcmp(panic->get_msg().data.c_str(), "") || was_panic)
     if (!panic->get_msg().data.empty() || was_panic)
     {
@@ -391,7 +395,16 @@ void SamDashboardWidget::show_window(bool& show_dashboard_window)
         ImGui::SameLine(150);
         ImGui::Text("Lon: %.5f", gps->get_msg().longitude);
         ImGui::SameLine(300);
-        ImGui::Text("Altitude: %.1fm", dvl->get_msg().altitude);
+        const uint32_t dvlMsgAgeThresh = 5;
+        const bool dvlMsgOld = dvlMsgAgeThresh < current_time_epoch-dvl->get_msg().header.stamp.sec ? true : false;
+        if (dvlMsgOld)
+        {
+            ImGui::Text("Altitude: ---");
+        }
+        else
+        {
+            ImGui::Text("Altitude: %.1fm", dvl->get_msg().altitude);
+        }
     }
 
     if (ImGui::CollapsingHeader("DR translation", ImGuiTreeNodeFlags_Framed | ImGuiTreeNodeFlags_DefaultOpen)) {
@@ -608,7 +621,7 @@ void SamMonitorWidget::show_window(bool& show_dashboard_window, bool guiDebug)
     std::chrono::system_clock::duration dtn = tp.time_since_epoch();
     uint32_t current_time_epoch = dtn.count() * std::chrono::system_clock::period::num / std::chrono::system_clock::period::den;
 
-    static int selectedTab = 0;
+    static int selectedTab = 1;
     const std::vector<const char*> tabNames{"Overview", "Electrical", "UAVCAN", "Jetson", "Comms", "Payloads"};
     for (int i = 0; i < tabNames.size(); i++)
     {
@@ -669,12 +682,68 @@ void SamMonitorWidget::show_window(bool& show_dashboard_window, bool guiDebug)
             
             ImGui::EndChild();
             ImGui::SameLine();
-            if(ImGui::Button("UPDATE BATTERY", ImVec2(100, 20)))
+            ImGui::BeginChild("Battery update", ImVec2(120, 80), false, 0);
+            ImGui::Text("Update battery");
+            ImGui::Separator();
+            if (ImGui::Button("Update"))
             {
-                sam_msgs::UavcanUpdateBattery::Request req;
-                req.command = 2;
-                batteryService.call<sam_msgs::UavcanUpdateBattery>(req, std::bind(&SamMonitorWidget::batteryCallback, this, std::placeholders::_1, std::placeholders::_2));
+                batteryUpdateResponse = -1;
+                ImGui::OpenPopup("batteryUpdate");
             }
+            if (ImGui::BeginPopup("batteryUpdate"))
+            {
+                ImGui::BeginChild("Battery update context", ImVec2(200, 70), false, 0);
+                ImGui::Text("Update battery charge");
+                ImGui::Separator();
+                sam_msgs::UavcanUpdateBattery::Request req;
+                static int update_mode = 0;
+                ImGui::Combo("", &update_mode, "Was full\0Is full\0Add charge\0On mains\0\0");
+                if(update_mode == 0)
+                {
+                    req.command = 2;
+                    req.charge = 0;
+                }
+                else if(update_mode == 1)
+                {
+                    req.command = 1;
+                    req.charge = 0;
+                }
+                else if(update_mode == 2)
+                {
+                    // ImGui::SameLine();
+                    static float f0 = 0.0f;
+                    ImGui::InputFloat("Ah", &f0, 0.0f, 0.0f);
+                    req.command = 3;
+                    req.charge = f0;
+                }
+                else if(update_mode == 3)
+                {
+                    req.command = 4;
+                    req.charge = 0;
+                }
+
+                ImGui::EndChild();
+                if(ImGui::Button("SEND", ImVec2(100, 20)))
+                {
+                    batteryUpdateResponse = 0;
+                    batteryService.call<sam_msgs::UavcanUpdateBattery>(req, std::bind(&SamMonitorWidget::batteryCallback, this, std::placeholders::_1, std::placeholders::_2));
+                }
+                ImGui::SameLine();
+                if (batteryUpdateResponse == -2)
+                {
+                    ImGui::TextColored(ImVec4(1.0f, 0.0f, 0.0f, 1.00f), "Error!");
+                }
+                else if (batteryUpdateResponse == 1)
+                {
+                    ImGui::TextColored(ImVec4(0.0f, 0.71f, 0.06f, 1.00f), "Success!");
+                }
+                else if (batteryUpdateResponse == 2)
+                {
+                    ImGui::TextColored(ImVec4(0.87f, 0.57f, 0.0f, 1.00f), "Invalid!");
+                }
+                ImGui::EndPopup();
+            }
+            ImGui::EndChild();
         }
         ImGui::Columns(2, "rail_split", false);
         ImGui::SetColumnWidth(0, 545);
@@ -1356,17 +1425,32 @@ void SamMonitorWidget::show_window(bool& show_dashboard_window, bool guiDebug)
             ImGui::Separator();
 
             ImGui::Text("Velocity [m/s]");
-            ImGui::Text("x %.3f", dvl->get_msg().velocity.x); //ImGui::SameLine(60);
-            ImGui::Text("y %.3f", dvl->get_msg().velocity.y); //ImGui::SameLine(50);
-            ImGui::Text("z %.3f", dvl->get_msg().velocity.z);
-            ImGui::Separator();
-            ImGui::Text("Velocity covariance");
-            ImGui::Text("11: %.3f", dvl->get_msg().velocity_covariance[0]); //ImGui::SameLine(50);
-            ImGui::Text("22: %.3f", dvl->get_msg().velocity_covariance[4]); //ImGui::SameLine(50);
-            ImGui::Text("33: %.3f", dvl->get_msg().velocity_covariance[8]);
-            ImGui::Separator();
-            // ImGui::Text("Velocity covariance");
-            ImGui::Text("Altitude: %.1f m", dvl->get_msg().altitude); ImGui::SameLine(60);
+            if (dvlMsgOld)
+            {
+                ImGui::Text("x ---"); //ImGui::SameLine(60);
+                ImGui::Text("y ---"); //ImGui::SameLine(50);
+                ImGui::Text("z ---");
+                ImGui::Separator();
+                ImGui::Text("Velocity covariance");
+                ImGui::Text("11: ---"); //ImGui::SameLine(50);
+                ImGui::Text("22: ---"); //ImGui::SameLine(50);
+                ImGui::Text("33: ---");
+                ImGui::Separator();
+                ImGui::Text("Altitude: ---"); ImGui::SameLine(60);
+            }
+            else
+            {
+                ImGui::Text("x %.3f", dvl->get_msg().velocity.x); //ImGui::SameLine(60);
+                ImGui::Text("y %.3f", dvl->get_msg().velocity.y); //ImGui::SameLine(50);
+                ImGui::Text("z %.3f", dvl->get_msg().velocity.z);
+                ImGui::Separator();
+                ImGui::Text("Velocity covariance");
+                ImGui::Text("11: %.3f", dvl->get_msg().velocity_covariance[0]); //ImGui::SameLine(50);
+                ImGui::Text("22: %.3f", dvl->get_msg().velocity_covariance[4]); //ImGui::SameLine(50);
+                ImGui::Text("33: %.3f", dvl->get_msg().velocity_covariance[8]);
+                ImGui::Separator();
+                ImGui::Text("Altitude: %.1f m", dvl->get_msg().altitude); ImGui::SameLine(60);
+            }
 
             ImGui::EndChild();
         }
@@ -1467,10 +1551,31 @@ void SamMonitorWidget::show_window(bool& show_dashboard_window, bool guiDebug)
     }
     else if(selectedTab == 3)
     {
+        const int jHeigth = 220;
         {
-            ImGui::BeginChild("Jetson", ImVec2(600, 200), true, 0);
-            // ImGui::Columns(4);
-            // ImGui::SetColumnWidth(0, 40);
+            const ImVec2 jSize = ImVec2(600, jHeigth);
+            ImGui::BeginChild("Jetson", jSize, true, 0);
+
+            const std::vector<const char*> powerModes{"No limit", "10W", "15W", "30W 8 Cores", "30W 6 Cores", "30W 4 Cores", "30W 2 Cores", "15W Desktop"};
+            ImGui::Text("Performance");
+            ImGui::Separator();
+            ImGui::Columns(2);
+            ImGui::SetColumnWidth(0, jSize[0]/2);
+            ImGui::Text("Power mode: %s", powerModes[nvMode]);
+            ImGui::NextColumn();
+            if (jetsonClocks)
+            {
+                ImGui::Text("Jetson clocks: active");
+            }
+            else
+            {
+                ImGui::Text("Jetson clocks: inactive");
+            }
+            // ImGui::Text("Power mode: %d", nvMode);
+            ImGui::Columns(1);
+            ImGui::Text("Uptime: %s", uptime.c_str());
+            ImGui::Text(" ");
+            ImGui::Separator();
             // ImGui::SetColumnWidth(1, 230);
             // ImGui::SetColumnWidth(2, 40);
             // ImGui::SetColumnWidth(3, 230);
@@ -1573,16 +1678,53 @@ void SamMonitorWidget::service_callback(const uavcan_ros_bridge::UavcanRestartNo
 }
 void SamMonitorWidget::batteryCallback(const sam_msgs::UavcanUpdateBattery::Response& res, bool result)
 {
-    // topics = res.topics;
-    // topics.clear();
-    // std::copy_if(res.topics.begin(), res.topics.end(), std::back_inserter(topics), [](const std::string& s){return s.find("compressedDepth") == std::string::npos;});
+    if (result) // Service call successfull
+    {
+        if (res.success)    // Update successfull
+        {
+            batteryUpdateResponse = 1;
+        }
+        else    // Invalid request
+        {
+            batteryUpdateResponse = 2;
+        }
+    }
+    else    // Service call failed
+    {
+        batteryUpdateResponse = -2;
+    }
 }
 void SamMonitorWidget::callbackSystem(const diagnostic_msgs::DiagnosticArray& msg)
 {
     lastSystemUpdate = msg.header.stamp.sec;
     for(int i = 0; i < msg.status.size(); i++)
     {
-        if(strcmp(msg.status[i].name.c_str(), "jetson_stats cpu CPU1") == 0)
+        if(strcmp(msg.status[i].name.c_str(), "jetson_stats board status") == 0)
+        {
+            for(int j = 0; j < msg.status[i].values.size(); j++)
+            {
+                if(strcmp(msg.status[i].values[j].key.c_str(), "NV Power") == 0)
+                {
+                    nvMode = std::stoi(msg.status[i].values[j].value);
+                }
+                else if(strcmp(msg.status[i].values[j].key.c_str(), "jetson_clocks") == 0)
+                {
+                    if (strcmp(msg.status[i].values[j].value.c_str(), "active") == 0)
+                    {
+                        jetsonClocks = true;
+                    }
+                    else
+                    {
+                        jetsonClocks = false;
+                    }
+                }
+                else if(strcmp(msg.status[i].values[j].key.c_str(), "Up Time") == 0)
+                {
+                    uptime = msg.status[i].values[j].value.c_str();
+                }
+            }
+        }
+        else if(strcmp(msg.status[i].name.c_str(), "jetson_stats cpu CPU1") == 0)
         {
             int freq = 0;
             int div = 1;
