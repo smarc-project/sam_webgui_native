@@ -2166,6 +2166,7 @@ SamLogWidget::SamLogWidget(roswasm::NodeHandle& nh)
     // subLog = nh->subscribe<rosgraph_msgs::Log>("/rosout", std::bind(&SamLogWidget::callbackLog, this, std::placeholders::_1), 10);
     nhLocal = &nh;
     subLogEnabled = false;
+    subLogInitialState = true;
     // subLog = nullptr;
 }
 void SamLogWidget::show_window(bool& show_roslog_window, bool guiDebug)
@@ -2190,60 +2191,237 @@ void SamLogWidget::show_window(bool& show_roslog_window, bool guiDebug)
     ImGui::SetNextWindowSize(ImVec2(472, 400), ImGuiCond_FirstUseEver);
     ImGui::Begin("Log", &show_roslog_window);
 
-    ImGui::Checkbox("Enable", &logEnable); ImGui::SameLine();
+    ImGui::Checkbox("Enable", &logEnable);
+    
+    if (logEnable && subLogInitialState)
+    {
+        ImGui::OpenPopup("logPrompt");
+    }
+    if (ImGui::BeginPopup("logPrompt"))
+    {
+        ImGui::BeginChild("Log warning", ImVec2(250, 70), false, 0);
+        ImGui::TextWrapped("Subscribing to the logs demands a lot of resources from the system and should only be done if neccessary!");
+        ImGui::Separator();
+        
+
+        ImGui::EndChild();
+        if(ImGui::Button("I understand, show me the logs", ImVec2(250, 20)))
+        {
+            subLogInitialState = false;
+            ImGui::CloseCurrentPopup();
+        }
+        if(ImGui::Button("Nevermind", ImVec2(250, 20)))
+        {
+            logEnable = false;
+            ImGui::CloseCurrentPopup();
+        }
+
+        ImGui::EndPopup();
+    }
+
+    ImGui::SameLine();
 
     // std::chrono::system_clock::time_point tp = std::chrono::system_clock::now();
     // std::chrono::system_clock::duration dtn = tp.time_since_epoch();
     // uint32_t current_time_epoch = dtn.count() * std::chrono::system_clock::period::num / std::chrono::system_clock::period::den;
-
-    static int selectedTab = 0;
-    const std::vector<const char*> tabNames{"All", "Error", "Warning", "UAVCAN"};
-    for (int i = 0; i < tabNames.size(); i++)
+    if (!subLogInitialState)
     {
-        if (i > 0) ImGui::SameLine();
-        ImGui::PushID(i);
-        if(selectedTab == i) {
-            ImGui::PushStyleColor(ImGuiCol_Button, ImGui::GetColorU32(ImGuiCol_FrameBgActive));
-        } else {
-            ImGui::PushStyleColor(ImGuiCol_Button, ImGui::GetColorU32(ImGuiCol_FrameBg));
-        }
-        ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImGui::GetColorU32(ImGuiCol_FrameBgHovered));
-        ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImGui::GetColorU32(ImGuiCol_FrameBgActive));
-        if(ImGui::Button(tabNames[i], ImVec2(85,20))){
-            selectedTab = i;
-        }
-        ImGui::PopStyleColor(3);
-        ImGui::PopID();
-    }
-    if(guiDebug)
-    {
-        ImGui::Text("Choosen tab: %d", selectedTab);
-        // ImGui::Text("%u", current_time_epoch);
-    }
-
-    if(selectedTab == 0)
-    {
+        static int selectedTab = 0;
+        const std::vector<const char*> tabNames{"All", "Error", "Warning", "UAVCAN"};
+        for (int i = 0; i < tabNames.size(); i++)
         {
-            ImGui::BeginChild("mainLog", ImGui::GetContentRegionAvail(), true, 0);
-            // ImGui::BeginChild("mainLog", ImVec2(600, 200), true, 0);
-
-            ImGui::Text("Log");
-            if(guiDebug)
-            {
-                ImGui::SameLine(); ImGui::Text("List size: %lu", mainLogList.size());
+            if (i > 0) ImGui::SameLine();
+            ImGui::PushID(i);
+            if(selectedTab == i) {
+                ImGui::PushStyleColor(ImGuiCol_Button, ImGui::GetColorU32(ImGuiCol_FrameBgActive));
+            } else {
+                ImGui::PushStyleColor(ImGuiCol_Button, ImGui::GetColorU32(ImGuiCol_FrameBg));
             }
-        
-            ImGui::Separator();
-            
+            ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImGui::GetColorU32(ImGuiCol_FrameBgHovered));
+            ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImGui::GetColorU32(ImGuiCol_FrameBgActive));
+            if(ImGui::Button(tabNames[i], ImVec2(85,20))){
+                selectedTab = i;
+            }
+            ImGui::PopStyleColor(3);
+            ImGui::PopID();
+        }
+        if(guiDebug)
+        {
+            ImGui::Text("Choosen tab: %d", selectedTab);
+            // ImGui::Text("%u", current_time_epoch);
+        }
+
+        if(selectedTab == 0)
+        {
             {
-                ImGui::Columns(1, "mainLogList");
+                ImGui::BeginChild("mainLog", ImGui::GetContentRegionAvail(), true, 0);
+                // ImGui::BeginChild("mainLog", ImVec2(600, 200), true, 0);
+
+                ImGui::Text("Log");
+                if(guiDebug)
+                {
+                    ImGui::SameLine(); ImGui::Text("List size: %lu", mainLogList.size());
+                }
+            
+                ImGui::Separator();
+                
+                {
+                    ImGui::Columns(1, "mainLogList");
+
+                    // ImGui::SetColumnWidth(0, 100);
+                    // ImGui::SetColumnWidth(1, 400);
+                    // ImGui::Text("Message"); ImGui::NextColumn();
+                    // ImGui::Text("Function"); ImGui::NextColumn();
+                    // ImGui::Separator();
+
+                    static std::list<rosgraph_msgs::Log>::iterator selectedLog;
+                    for (auto msgIt = mainLogList.begin(); msgIt != mainLogList.end(); msgIt++)
+                    {
+                        char logLabel[32];
+                        sprintf(logLabel, "%s", msgIt->msg.c_str());
+                        if (ImGui::Selectable(logLabel, selectedLog == msgIt, ImGuiSelectableFlags_SpanAllColumns))
+                        {
+                            selectedLog = msgIt;
+                        }
+                        // ImGui::NextColumn();
+                        // ImGui::Text("%s", msgIt->function.c_str()); ImGui::NextColumn();
+                    }
+                    ImGui::Columns(1);
+                }
+                ImGui::EndChild();
+            }
+        }
+        else if(selectedTab == 1)
+        {
+            {
+                ImGui::BeginChild("errorLog", ImGui::GetContentRegionAvail(), true, 0);
+
+                ImGui::Text("Log");
+                if(guiDebug)
+                {
+                    ImGui::SameLine(); ImGui::Text("List size: %lu", errorLogList.size());
+                }
+            
+                ImGui::Separator();
+                
+                {
+                    ImGui::Columns(1, "errorLogList");
+
+                    // ImGui::SetColumnWidth(0, 100);
+                    // ImGui::SetColumnWidth(1, 400);
+                    // ImGui::Text("Message"); ImGui::NextColumn();
+                    // ImGui::Text("Function"); ImGui::NextColumn();
+                    // ImGui::Separator();
+
+                    static std::list<rosgraph_msgs::Log>::iterator selectedLog;
+                    for (auto msgIt = errorLogList.begin(); msgIt != errorLogList.end(); msgIt++)
+                    {
+                        char logLabel[32];
+                        sprintf(logLabel, "%s", msgIt->msg.c_str());
+                        if (ImGui::Selectable(logLabel, selectedLog == msgIt, ImGuiSelectableFlags_SpanAllColumns))
+                        {
+                            selectedLog = msgIt;
+                        }
+                        // ImGui::NextColumn();
+                        // ImGui::Text("%s", msgIt->function.c_str()); ImGui::NextColumn();
+                    }
+                    ImGui::Columns(1);
+                }
+                ImGui::EndChild();
+            }
+        }
+        else if(selectedTab == 2)
+        {
+            {
+                ImGui::BeginChild("warningLog", ImGui::GetContentRegionAvail(), true, 0);
+
+                ImGui::Text("Log");
+                if(guiDebug)
+                {
+                    ImGui::SameLine(); ImGui::Text("List size: %lu", warningLogList.size());
+                }
+            
+                ImGui::Separator();
+                
+                {
+                    ImGui::Columns(1, "warningLogList");
+
+                    // ImGui::SetColumnWidth(0, 100);
+                    // ImGui::SetColumnWidth(1, 400);
+                    // ImGui::Text("Message"); ImGui::NextColumn();
+                    // ImGui::Text("Function"); ImGui::NextColumn();
+                    // ImGui::Separator();
+
+                    static std::list<rosgraph_msgs::Log>::iterator selectedLog;
+                    for (auto msgIt = warningLogList.begin(); msgIt != warningLogList.end(); msgIt++)
+                    {
+                        char logLabel[32];
+                        sprintf(logLabel, "%s", msgIt->msg.c_str());
+                        if (ImGui::Selectable(logLabel, selectedLog == msgIt, ImGuiSelectableFlags_SpanAllColumns))
+                        {
+                            selectedLog = msgIt;
+                        }
+                        // ImGui::NextColumn();
+                        // ImGui::Text("%s", msgIt->function.c_str()); ImGui::NextColumn();
+                    }
+                    ImGui::Columns(1);
+                }
+                ImGui::EndChild();
+            }
+        }
+        else if(selectedTab == 5)
+        {
+            {
+                ImGui::BeginChild("btLog", ImVec2(600, 200), true, 0);
+
+                ImGui::Text("Log");
+                if(guiDebug)
+                {
+                    ImGui::SameLine(); ImGui::Text("List size: %lu", btLogList.size());
+                }
+            
+                ImGui::Separator();
+                
+                {
+                    ImGui::Columns(2, "btLogList");
+                    ImGui::Separator();
+
+                    ImGui::SetColumnWidth(0, 100); ImGui::Text("Function"); ImGui::NextColumn();
+                    ImGui::SetColumnWidth(1, 400); ImGui::Text("Message"); ImGui::NextColumn();
+
+                    ImGui::Separator();
+
+
+                    static std::list<rosgraph_msgs::Log>::iterator selectedLog;
+                    for (auto msgIt = btLogList.begin(); msgIt != btLogList.end(); msgIt++)
+                    {
+                        char logLabel[32];
+                        sprintf(logLabel, "%s", msgIt->function.c_str());
+                        if (ImGui::Selectable(logLabel, selectedLog == msgIt, ImGuiSelectableFlags_SpanAllColumns))
+                        {
+                            selectedLog = msgIt;
+                        }
+                        ImGui::NextColumn();
+                        ImGui::Text("%s", msgIt->msg.c_str()); ImGui::NextColumn();
+                    }
+                    ImGui::Columns(1);
+                }
+                ImGui::EndChild();
+            }
+            {
+                ImGui::BeginChild("mainLogUnfiltered", ImVec2(600, 200), true, 0);
+
+                ImGui::Text("Log unfiltered");
+                ImGui::Separator();
+                ImGui::Columns(1, "unLogList");
+                ImGui::Separator();
 
                 // ImGui::SetColumnWidth(0, 100);
                 // ImGui::SetColumnWidth(1, 400);
                 // ImGui::Text("Message"); ImGui::NextColumn();
                 // ImGui::Text("Function"); ImGui::NextColumn();
-                // ImGui::Separator();
 
+                ImGui::Separator();
                 static std::list<rosgraph_msgs::Log>::iterator selectedLog;
                 for (auto msgIt = mainLogList.begin(); msgIt != mainLogList.end(); msgIt++)
                 {
@@ -2257,155 +2435,8 @@ void SamLogWidget::show_window(bool& show_roslog_window, bool guiDebug)
                     // ImGui::Text("%s", msgIt->function.c_str()); ImGui::NextColumn();
                 }
                 ImGui::Columns(1);
+                ImGui::EndChild();
             }
-            ImGui::EndChild();
-        }
-    }
-    else if(selectedTab == 1)
-    {
-        {
-            ImGui::BeginChild("errorLog", ImGui::GetContentRegionAvail(), true, 0);
-
-            ImGui::Text("Log");
-            if(guiDebug)
-            {
-                ImGui::SameLine(); ImGui::Text("List size: %lu", errorLogList.size());
-            }
-        
-            ImGui::Separator();
-            
-            {
-                ImGui::Columns(1, "errorLogList");
-
-                // ImGui::SetColumnWidth(0, 100);
-                // ImGui::SetColumnWidth(1, 400);
-                // ImGui::Text("Message"); ImGui::NextColumn();
-                // ImGui::Text("Function"); ImGui::NextColumn();
-                // ImGui::Separator();
-
-                static std::list<rosgraph_msgs::Log>::iterator selectedLog;
-                for (auto msgIt = errorLogList.begin(); msgIt != errorLogList.end(); msgIt++)
-                {
-                    char logLabel[32];
-                    sprintf(logLabel, "%s", msgIt->msg.c_str());
-                    if (ImGui::Selectable(logLabel, selectedLog == msgIt, ImGuiSelectableFlags_SpanAllColumns))
-                    {
-                        selectedLog = msgIt;
-                    }
-                    // ImGui::NextColumn();
-                    // ImGui::Text("%s", msgIt->function.c_str()); ImGui::NextColumn();
-                }
-                ImGui::Columns(1);
-            }
-            ImGui::EndChild();
-        }
-    }
-    else if(selectedTab == 2)
-    {
-        {
-            ImGui::BeginChild("warningLog", ImGui::GetContentRegionAvail(), true, 0);
-
-            ImGui::Text("Log");
-            if(guiDebug)
-            {
-                ImGui::SameLine(); ImGui::Text("List size: %lu", warningLogList.size());
-            }
-        
-            ImGui::Separator();
-            
-            {
-                ImGui::Columns(1, "warningLogList");
-
-                // ImGui::SetColumnWidth(0, 100);
-                // ImGui::SetColumnWidth(1, 400);
-                // ImGui::Text("Message"); ImGui::NextColumn();
-                // ImGui::Text("Function"); ImGui::NextColumn();
-                // ImGui::Separator();
-
-                static std::list<rosgraph_msgs::Log>::iterator selectedLog;
-                for (auto msgIt = warningLogList.begin(); msgIt != warningLogList.end(); msgIt++)
-                {
-                    char logLabel[32];
-                    sprintf(logLabel, "%s", msgIt->msg.c_str());
-                    if (ImGui::Selectable(logLabel, selectedLog == msgIt, ImGuiSelectableFlags_SpanAllColumns))
-                    {
-                        selectedLog = msgIt;
-                    }
-                    // ImGui::NextColumn();
-                    // ImGui::Text("%s", msgIt->function.c_str()); ImGui::NextColumn();
-                }
-                ImGui::Columns(1);
-            }
-            ImGui::EndChild();
-        }
-    }
-    else if(selectedTab == 5)
-    {
-        {
-            ImGui::BeginChild("btLog", ImVec2(600, 200), true, 0);
-
-            ImGui::Text("Log");
-            if(guiDebug)
-            {
-                ImGui::SameLine(); ImGui::Text("List size: %lu", btLogList.size());
-            }
-        
-            ImGui::Separator();
-            
-            {
-                ImGui::Columns(2, "btLogList");
-                ImGui::Separator();
-
-                ImGui::SetColumnWidth(0, 100); ImGui::Text("Function"); ImGui::NextColumn();
-                ImGui::SetColumnWidth(1, 400); ImGui::Text("Message"); ImGui::NextColumn();
-
-                ImGui::Separator();
-
-
-                static std::list<rosgraph_msgs::Log>::iterator selectedLog;
-                for (auto msgIt = btLogList.begin(); msgIt != btLogList.end(); msgIt++)
-                {
-                    char logLabel[32];
-                    sprintf(logLabel, "%s", msgIt->function.c_str());
-                    if (ImGui::Selectable(logLabel, selectedLog == msgIt, ImGuiSelectableFlags_SpanAllColumns))
-                    {
-                        selectedLog = msgIt;
-                    }
-                    ImGui::NextColumn();
-                    ImGui::Text("%s", msgIt->msg.c_str()); ImGui::NextColumn();
-                }
-                ImGui::Columns(1);
-            }
-            ImGui::EndChild();
-        }
-        {
-            ImGui::BeginChild("mainLogUnfiltered", ImVec2(600, 200), true, 0);
-
-            ImGui::Text("Log unfiltered");
-            ImGui::Separator();
-            ImGui::Columns(1, "unLogList");
-            ImGui::Separator();
-
-            // ImGui::SetColumnWidth(0, 100);
-            // ImGui::SetColumnWidth(1, 400);
-            // ImGui::Text("Message"); ImGui::NextColumn();
-            // ImGui::Text("Function"); ImGui::NextColumn();
-
-            ImGui::Separator();
-            static std::list<rosgraph_msgs::Log>::iterator selectedLog;
-            for (auto msgIt = mainLogList.begin(); msgIt != mainLogList.end(); msgIt++)
-            {
-                char logLabel[32];
-                sprintf(logLabel, "%s", msgIt->msg.c_str());
-                if (ImGui::Selectable(logLabel, selectedLog == msgIt, ImGuiSelectableFlags_SpanAllColumns))
-                {
-                    selectedLog = msgIt;
-                }
-                // ImGui::NextColumn();
-                // ImGui::Text("%s", msgIt->function.c_str()); ImGui::NextColumn();
-            }
-            ImGui::Columns(1);
-            ImGui::EndChild();
         }
     }
     

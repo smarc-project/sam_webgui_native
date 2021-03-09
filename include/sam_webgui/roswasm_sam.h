@@ -206,6 +206,7 @@ private:
     std::list<rosgraph_msgs::Log> btLogList;
     roswasm::Subscriber subLog;
     bool subLogEnabled = false;
+    bool subLogInitialState = true;
     void callbackLog(const rosgraph_msgs::Log& msg);
     bool logEnable = false;
 public:
