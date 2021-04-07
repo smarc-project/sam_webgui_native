@@ -1,6 +1,6 @@
 <?xml version="1.0"?>
 <package format="2">
-  <name>sam_webgui</name>
+  <name>sam_webgui_native</name>
   <version>0.1.2</version>
   <description>The sam_webgui package</description>
 
@@ -43,12 +43,18 @@
   <build_depend>sensor_msgs</build_depend>
   <build_depend>nav_msgs</build_depend>
   <build_depend>rosmon_msgs</build_depend>
-  <build_depend>roswasm</build_depend>
+  <build_depend>roswasm_native</build_depend>
+  <build_depend>roswasm_webgui_native</build_depend>
+  <build_depend>opengl</build_depend>
+  <build_depend>sdl2</build_depend>
+  <build_depend>sdl2_image</build_depend>
+  <build_depend>libglfw3-dev</build_depend>
+  <build_depend>libglew-dev</build_depend>
   <build_depend>roswasm_webgui</build_depend>
   <!-- <build_depend>rosmon_msgs</build_depend> -->
   <exec_depend>roscpp</exec_depend>
-  <exec_depend>roswasm</exec_depend>
-  <exec_depend>roswasm_webgui</exec_depend>
+  <exec_depend>roswasm_native</exec_depend>
+  <exec_depend>roswasm_webgui_native</exec_depend>
   <exec_depend>rosbridge_server</exec_depend>
   <!-- <exec_depend>roswasm_webgui</exec_depend> -->
   <buildtool_depend>catkin</buildtool_depend>
