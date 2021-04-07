@@ -248,7 +248,7 @@ void SamActuatorWidget::show_window(bool& show_actuator_window)
 
 SamDashboardWidget::SamDashboardWidget(roswasm::NodeHandle& nh) : was_leak(false)
 {
-    leak = new TopicBuffer<smarc_msgs::Leak>(nh, "core/leak_fb");
+    leak = new TopicBuffer<smarc_msgs::Leak>(nh, "core/leak");
     gps = new TopicBuffer<sensor_msgs::NavSatFix>(nh, "core/gps");
     battery = new TopicBuffer<sensor_msgs::BatteryState>(nh, "core/battery");
     odom = new TopicBuffer<nav_msgs::Odometry>(nh, "dr/odom", 1000);
@@ -257,10 +257,10 @@ SamDashboardWidget::SamDashboardWidget(roswasm::NodeHandle& nh) : was_leak(false
     //rpms = new TopicBuffer<sam_msgs::ThrusterRPMs>(nh, "core/rpm_fb", 1000);
     rpm1 = new TopicBuffer<smarc_msgs::ThrusterRPM>(nh, "core/thruster1_cmd", 1000);
     rpm2 = new TopicBuffer<smarc_msgs::ThrusterRPM>(nh, "core/thruster2_cmd", 1000);
-    depth = new TopicBuffer<std_msgs::Float64>(nh, "ctrl/depth_feedback", 1000);
-    pitch = new TopicBuffer<std_msgs::Float64>(nh, "ctrl/pitch_feedback", 1000);
-    roll = new TopicBuffer<std_msgs::Float64>(nh, "ctrl/roll_feedback", 1000);
-    yaw = new TopicBuffer<std_msgs::Float64>(nh, "ctrl/yaw_feedback", 1000);
+    depth = new TopicBuffer<std_msgs::Float64>(nh, "dr/depth", 1000);
+    pitch = new TopicBuffer<std_msgs::Float64>(nh, "dr/pitch", 1000);
+    roll = new TopicBuffer<std_msgs::Float64>(nh, "dr/roll", 1000);
+    yaw = new TopicBuffer<std_msgs::Float64>(nh, "dr/yaw", 1000);
 }
 
 void SamDashboardWidget::show_window(bool& show_dashboard_window)
