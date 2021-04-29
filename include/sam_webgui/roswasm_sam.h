@@ -18,10 +18,12 @@
 #include <nav_msgs/Odometry.h>
 
 #include <sam_msgs/PercentStamped.h>
+
 #include <sam_msgs/ThrusterAngles.h>
 #include <sam_msgs/BallastAngles.h>
 //#include <sam_msgs/Leak.h>
 #include <smarc_msgs/Leak.h>
+
 #include <sam_msgs/ConsumedChargeFeedback.h>
 #include <sam_msgs/CircuitStatusStampedArray.h>
 #include <sam_msgs/ConsumedChargeArray.h>
@@ -46,6 +48,7 @@
 #include <chrono>
 #include <unordered_map>
 
+
 namespace roswasm_webgui {
 
 bool draw_ballast_angles(sam_msgs::BallastAngles& msg, roswasm::Publisher& pub);
@@ -64,6 +67,7 @@ private:
     TopicWidget<sam_msgs::ThrusterAngles>* thruster_angles;
     TopicWidget<smarc_msgs::ThrusterRPM>* thruster1_rpm;
     TopicWidget<smarc_msgs::ThrusterRPM>* thruster2_rpm;
+
     TopicWidget<smarc_msgs::DualThrusterRPM>* thruster_rpms;
     roswasm::Publisher rpm_pub;
     roswasm::Publisher rpm1_pub;
@@ -96,6 +100,9 @@ private:
     // TopicBuffer<nav_msgs::Odometry>* odom;
     TopicBuffer<sam_msgs::PercentStamped>* vbs_fb;
     TopicBuffer<sam_msgs::PercentStamped>* lcg;
+
+    //TopicBuffer<smarc_msgs::ThrusterRPM>* rpm1;
+    //TopicBuffer<smarc_msgs::ThrusterRPM>* rpm2;
     TopicBuffer<smarc_msgs::DualThrusterFeedback>* rpms;
     // TopicBuffer<smarc_msgs::ThrusterRPM>* rpm1;rpm1_pub
     TopicBuffer<cola2_msgs::DVL>* dvl;

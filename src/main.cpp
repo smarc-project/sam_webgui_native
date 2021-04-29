@@ -21,12 +21,7 @@
 #include <roswasm_webgui/roswasm_image.h>
 #include <roswasm_webgui/roswasm_examples.h>
 
-//#define WITH_SAM_MSGS
-
 #include <sam_webgui/roswasm_sam.h>
-//#include <iostream>
-
-#include <unordered_set>
 
 roswasm::NodeHandle* nh;
 roswasm_webgui::MonlaunchWidget* monlaunch_widget;
@@ -39,7 +34,6 @@ roswasm_webgui::SamMonitorWidget* monitor_widget;
 roswasm_webgui::SamLogWidget* roslog_widget;
 
 GLFWwindow* g_window;
-//ImVec4 clear_color = ImVec4(0.45f, 0.55f, 0.60f, 1.00f);
 ImVec4 clear_color = ImVec4(0.25f, 0.45f, 0.55f, 1.00f);
 ImVec4 emergency_color = ImVec4(1.0f, 0.0f, 0.0f, 1.00f);
 ImVec4 warning_color = ImVec4(0.87f, 0.57f, 0.0f, 1.00f);
@@ -91,15 +85,15 @@ int drawTabs(int _guiMode, const std::map<int, const char*> _modeMap);
 
 #ifndef ROSWASM_NATIVE
 EM_JS(int, canvas_get_width, (), {
-  return Module.canvas.width;
+    return Module.canvas.width;
 });
 
 EM_JS(int, canvas_get_height, (), {
-  return Module.canvas.height;
+    return Module.canvas.height;
 });
 
 EM_JS(void, resizeCanvas, (), {
-  js_resizeCanvas();
+    js_resizeCanvas();
 });
 #endif
 
@@ -109,6 +103,7 @@ void loop()
         roswasm::shutdown();
         return;
     }
+
   // if (publishPanic && panic_pub_timer == nullptr) {
   //   // panic_pub_timer = new roswasm::Timer(0.08, std::bind(&pub_panic_callback, std::placeholders::_1));
   //   panic_pub_timer = new roswasm::Timer(0.08, pub_panic_callback);
@@ -573,7 +568,6 @@ int init()
         return 1;
     }
 #endif
-
   // Create game objects
   // Setup Dear ImGui binding
   IMGUI_CHECKVERSION();
@@ -635,7 +629,9 @@ void quit()
 
 extern "C" int main(int argc, char** argv)
 {
-  if (init() != 0) return 1;
+    if (init() != 0) return 1;
+
+    roswasm::init(argc, argv, "roswasm_webgui");
 
   roswasm::init(argc, argv, "roswasm_webgui");
 
@@ -671,7 +667,7 @@ extern "C" int main(int argc, char** argv)
   roswasm::spinLoop(loop, loop_rate);
   //roswasm::spinLoop(loop);
 
-  quit();
+    quit();
 
-  return 0;
+    return 0;
 }

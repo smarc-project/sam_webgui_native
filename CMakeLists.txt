@@ -8,6 +8,7 @@ if (DEFINED ENV{EMSDK} OR ${ROSWASM_NATIVE})
 ## Find catkin macros and libraries
 ## if COMPONENTS list like find_package(catkin REQUIRED COMPONENTS xyz)
 ## is used, also find other catkin packages
+
 find_package(catkin REQUIRED COMPONENTS roscpp roswasm_webgui uavcan_ros_bridge uavcan_ros_msgs sam_msgs smarc_msgs std_msgs sensor_msgs geometry_msgs nav_msgs cola2_msgs sbg_driver rosgraph_msgs)
 
 ###################################
@@ -56,6 +57,7 @@ endif()
 
 #add_library(sam_webgui STATIC src/roswasm_sam.cpp)
 # add_library(sam_webgui src/roswasm_sam.cpp)
+
 add_library(${SAM_WEBGUI_LIB} src/roswasm_sam.cpp)
 add_executable(sam_webgui_test src/main.cpp)
 

@@ -76,6 +76,7 @@ bool draw_thruster_rpm(smarc_msgs::ThrusterRPM& msg, roswasm::Publisher& pub)
 }
 
 bool draw_thruster_rpms(smarc_msgs::DualThrusterRPM& msg, roswasm::Publisher& pub)
+
 {
     ImGui::PushID("First cmd slider");
     ImGui::Text("Thruster 1");
@@ -109,6 +110,7 @@ bool draw_thruster_rpms(smarc_msgs::DualThrusterRPM& msg, roswasm::Publisher& pu
 
     return lock;
 }
+*/
 
 bool draw_thruster_angles(sam_msgs::ThrusterAngles& msg, roswasm::Publisher& pub)
 {
@@ -149,46 +151,6 @@ bool draw_thruster_angles(sam_msgs::ThrusterAngles& msg, roswasm::Publisher& pub
 
     return false;
 }
-
-// // bool draw_bar_signed(sam_msgs::ThrusterAngles& msg, roswasm::Publisher& pub)
-// bool draw_bar_signed(const ImVec2 pos, const ImVec2 size, const int v_fb, const int rangeBar, const int v_cmd, bool draw_value = true)
-// {
-//     ImVec2 motorWindowPos = ImGui::GetCursorScreenPos();
-//     ImVec2 motorOrigin = ImGui::GetCursorPos();
-
-//     // const ImVec2 pos = ImVec2(130, 60);
-//     // const ImVec2 size = ImVec2(40, 100);
-
-//     const ImVec2 barPos = ImVec2(motorWindowPos.x + pos.x, motorWindowPos.y + pos.y);
-//     const bool outOfRange = std::abs(v_fb) > rangeBar ? true : false;
-//     const float frac_fb =  (outOfRange) ? (v_fb < 0 ? -1.0f : 1.0f) : v_fb / rangeBar;
-//     const float frac_cmd =  (std::abs(v_cmd) > rangeBar) ? (v_cmd < 0 ? -1.0f : 1.0f) : v_cmd / rangeBar;
-
-//     // const float frac_fb = v_fb / rangeBar;
-//     // const float frac_cmd = v_cmd / rangeBar;
-//     const ImVec2 barLength = ImVec2((size.y/2-3)*frac_fb, (size.y/2-3)*frac_cmd);
-//     const ImVec2 bar_p1 = ImVec2(barPos.x + 3, barPos.y + size.y/2);
-//     const ImVec2 bar_p2 = ImVec2(barPos.x + size.x - 3, barPos.y + size.y/2);
-//     if (outOfRange)
-//     {
-//         ImGui::GetWindowDrawList()->AddRectFilled(bar_p1, ImVec2(bar_p2.x, bar_p2.y - barLength[0]), IM_COL32(195,0,0,255)); // fill
-//     }
-//     else
-//     {
-//         ImGui::GetWindowDrawList()->AddRectFilled(bar_p1, ImVec2(bar_p2.x, bar_p2.y - barLength[0]), ImGui::GetColorU32(ImGuiCol_PlotHistogram)); // fill
-//     }
-//     ImGui::GetWindowDrawList()->AddLine(ImVec2(barPos.x + 2, bar_p2.y - barLength[1]), ImVec2(barPos.x + size.x - 2, bar_p2.y - barLength[1]), IM_COL32(255,0,0,255), 3); // line
-//     ImGui::GetWindowDrawList()->AddRect(barPos, ImVec2(barPos.x + size.x, barPos.y + size.y), ImGui::GetColorU32(ImGuiCol_FrameBgActive)); // border
-//     // ImGui::Dummy(size);
-
-//     char label1[10];
-//     sprintf(label1, "%d", v_fb);
-//     const ImVec2 barLabelPos = ImVec2(motorOrigin.x + pos.x + size.x / 2, motorOrigin.y + pos.y + size.y);
-//     ImGui::SetCursorPos(ImVec2(barLabelPos.x - ImGui::CalcTextSize(label1).x / 2, barLabelPos.y));
-//     ImGui::Text("%s", label1);
-
-//     return false;
-// }
 
 SamActuatorWidget::SamActuatorWidget(roswasm::NodeHandle& nh) : rpm_pub_enabled(false)
 {
@@ -340,7 +302,6 @@ SamDashboardWidget::SamDashboardWidget(roswasm::NodeHandle& nh) : was_leak(false
 
 void SamDashboardWidget::show_window(bool& show_dashboard_window)
 {
-    ImGui::SetNextWindowSize(ImVec2(500, 243), ImGuiCond_FirstUseEver);
     ImGui::Begin("Status dashboard", &show_dashboard_window);
 
     std::chrono::system_clock::time_point tp = std::chrono::system_clock::now();
@@ -434,6 +395,7 @@ void SamDashboardWidget::show_window(bool& show_dashboard_window)
 
     ImGui::End();
 }
+
 
 // SamDashboardWidget2::SamDashboardWidget2(roswasm::NodeHandle& nh) : was_leak(false)
 // {
