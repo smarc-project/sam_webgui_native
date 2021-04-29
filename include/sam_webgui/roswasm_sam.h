@@ -8,6 +8,7 @@
 #include <rosgraph_msgs/Log.h>
 
 #include <std_msgs/String.h>
+#include <std_srvs/SetBool.h>
 #include <diagnostic_msgs/DiagnosticArray.h>
 
 #include <sensor_msgs/NavSatFix.h>
@@ -30,10 +31,12 @@
 #include <smarc_msgs/DualThrusterRPM.h>
 #include <smarc_msgs/ThrusterRPM.h>
 #include <smarc_msgs/CTD.h>
+#include <smarc_msgs/Sidescan.h>
+#include <smarc_msgs/SensorStatus.h>
 
-#include <uavcan_ros_bridge/CircuitStatus.h>
-#include <uavcan_ros_bridge/UavcanNodeStatusNamedArray.h>
-#include <uavcan_ros_bridge/UavcanRestartNode.h>
+#include <uavcan_ros_msgs/CircuitStatus.h>
+#include <uavcan_ros_msgs/UavcanNodeStatusNamedArray.h>
+#include <uavcan_ros_msgs/UavcanRestartNode.h>
 
 #include <cola2_msgs/DVL.h>
 
@@ -136,7 +139,7 @@ public:
 class SamMonitorWidget {
 private:
     TopicBuffer<sensor_msgs::BatteryState>* battery;
-    // TopicBuffer<uavcan_ros_bridge::CircuitStatus>* circuit;
+    // TopicBuffer<uavcan_ros_msgs::CircuitStatus>* circuit;
     TopicBuffer<sam_msgs::CircuitStatusStampedArray>* circuit;
     roswasm::Subscriber subCharge;
     void callbackCharge(const sam_msgs::ConsumedChargeArray& msg);
@@ -148,7 +151,7 @@ private:
     // roswasm::Subscriber* subLog;
     // void callbackLog(const rosgraph_msgs::Log& msg);
     // TopicBuffer<sam_msgs::ConsumedChargeFeedback>* charge;
-    TopicBuffer<uavcan_ros_bridge::UavcanNodeStatusNamedArray>* uavcan;
+    TopicBuffer<uavcan_ros_msgs::UavcanNodeStatusNamedArray>* uavcan;
     // TopicBuffer<nav_msgs::Odometry>* odom;
     TopicBuffer<sam_msgs::PercentStamped>* vbs_fb;
     TopicBuffer<sam_msgs::PercentStamped>* vbs_cmd;
@@ -162,9 +165,27 @@ private:
     TopicBuffer<smarc_msgs::ThrusterFeedback>* thruster1_fb;
     TopicBuffer<smarc_msgs::ThrusterFeedback>* thruster2_fb;
     TopicBuffer<smarc_msgs::CTD>* ctd;
+    // DVL
     TopicBuffer<cola2_msgs::DVL>* dvl;
+    roswasm::Subscriber dvl_status_subscriber;
+    void dvl_status_callback(const smarc_msgs::SensorStatus& msg);
+    uint32_t lastUpdateDVL = 0;
+    smarc_msgs::SensorStatus dvl_status;
+    roswasm::ServiceCallbackClient dvlEnableService;
+    void dvlEnableCallback(const std_srvs::SetBool::Response& res, bool result);
+    int8_t dvlEnableResponse = -1;
+    // SSS
+    TopicBuffer<smarc_msgs::Sidescan>* sss;
+    roswasm::Subscriber sss_status_subscriber;
+    void sss_status_callback(const smarc_msgs::SensorStatus& msg);
+    uint32_t lastUpdateSSS = 0;
+    smarc_msgs::SensorStatus sss_status;
+    roswasm::ServiceCallbackClient sssEnableService;
+    void sssEnableCallback(const std_srvs::SetBool::Response& res, bool result);
+    int8_t sssEnableResponse = -1;
+
     roswasm::ServiceCallbackClient first_service;
-    void service_callback(const uavcan_ros_bridge::UavcanRestartNode::Response& res, bool result);
+    void service_callback(const uavcan_ros_msgs::UavcanRestartNode::Response& res, bool result);
     TopicBuffer<diagnostic_msgs::DiagnosticArray>* system;
     roswasm::Subscriber subSystem;
     void callbackSystem(const diagnostic_msgs::DiagnosticArray& msg);
@@ -188,8 +209,9 @@ private:
     TopicBuffer<sbg_driver::SbgEkfEuler>* sbg_euler;
     // TopicBuffer<rosgraph_msgs::Log>* log;
     const ImVec4 emergency_color = ImVec4(1.0f, 0.0f, 0.0f, 1.00f);
-    ImVec4 warning_color = ImVec4(0.87f, 0.57f, 0.0f, 1.00f);
-    ImVec4 good_color = ImVec4(0.0f, 0.71f, 0.06f, 1.00f);
+    const ImVec4 warning_color = ImVec4(0.87f, 0.57f, 0.0f, 1.00f);
+    const ImVec4 good_color = ImVec4(0.0f, 0.71f, 0.06f, 1.00f);
+    const ImVec4 unknown_color = ImVec4(0.50f, 0.50f, 0.50f, 1.00f);
 public:
     void show_window(bool& show_monitor_window, bool guiDebug);
     SamMonitorWidget(roswasm::NodeHandle& nh);

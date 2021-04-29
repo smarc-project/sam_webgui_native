@@ -395,7 +395,7 @@ void SamDashboardWidget::show_window(bool& show_dashboard_window)
         ImGui::SameLine(150);
         ImGui::Text("Lon: %.5f", gps->get_msg().longitude);
         ImGui::SameLine(300);
-        const uint32_t dvlMsgAgeThresh = 5;
+        const uint32_t dvlMsgAgeThresh = 8;
         const bool dvlMsgOld = dvlMsgAgeThresh < current_time_epoch-dvl->get_msg().header.stamp.sec ? true : false;
         if (dvlMsgOld)
         {
@@ -581,7 +581,7 @@ SamMonitorWidget::SamMonitorWidget(roswasm::NodeHandle& nh)
     subCharge = nh.subscribe<sam_msgs::ConsumedChargeArray>("core/consumed_charge_array", 10, &SamMonitorWidget::callbackCharge, this);
     // batteryService = nh.serviceClient<sam_msgs::UavcanUpdateBattery>("/sam/core/uavcan_update_battery", std::bind(&SamMonitorWidget::batteryCallback, this, std::placeholders::_1, std::placeholders::_2));
     batteryService = roswasm::createServiceCallbackClient<sam_msgs::UavcanUpdateBattery>(nh, "core/uavcan_update_battery"); //, &SamMonitorWidget::batteryCallback, this);
-    uavcan = new TopicBuffer<uavcan_ros_bridge::UavcanNodeStatusNamedArray>(nh, "core/uavcan_status");
+    uavcan = new TopicBuffer<uavcan_ros_msgs::UavcanNodeStatusNamedArray>(nh, "core/uavcan_status");
     // odom = new TopicBuffer<nav_msgs::Odometry>(nh, "dr/odom", 1000);
     vbs_fb = new TopicBuffer<sam_msgs::PercentStamped>(nh, "core/vbs_fb", 1000);
     vbs_cmd = new TopicBuffer<sam_msgs::PercentStamped>(nh, "core/vbs_cmd", 1000);
@@ -595,11 +595,18 @@ SamMonitorWidget::SamMonitorWidget(roswasm::NodeHandle& nh)
     thruster1_cmd = new TopicBuffer<smarc_msgs::ThrusterRPM>(nh, "core/thruster1_cmd", 1000);
     thruster2_cmd = new TopicBuffer<smarc_msgs::ThrusterRPM>(nh, "core/thruster2_cmd", 1000);
     ctd = new TopicBuffer<smarc_msgs::CTD>(nh, "core/ctd", 1000);
+    // DVL
     dvl = new TopicBuffer<cola2_msgs::DVL>(nh, "core/dvl", 1000);
-    // first_service = nh.serviceClient<uavcan_ros_bridge::UavcanRestartNode>("/core/uavcan_restart_node", std::bind(&SamMonitorWidget::service_callback, this, std::placeholders::_1, std::placeholders::_2));
-    // first_service = createServiceCallbackClient<uavcan_ros_bridge::UavcanRestartNode>(nh, "/core/uavcan_restart_node"); //, std::bind(&SamMonitorWidget::service_callback, this, std::placeholders::_1, std::placeholders::_2));
-    first_service = roswasm::createServiceCallbackClient<uavcan_ros_bridge::UavcanRestartNode>(nh, "core/uavcan_restart_node");
-    // first_service = nh.serviceClient<uavcan_ros_bridge::UavcanRestartNode>("/sam/core/uavcan_restart_node", std::bind(&SamMonitorWidget::service_callback, this, std::placeholders::_1, std::placeholders::_2));
+    dvl_status_subscriber = nh.subscribe<smarc_msgs::SensorStatus>("core/dvl_status", 10, &SamMonitorWidget::dvl_status_callback, this);
+    dvlEnableService = roswasm::createServiceCallbackClient<std_srvs::SetBool>(nh, "core/toggle_dvl");
+    // SSS
+    sss = new TopicBuffer<smarc_msgs::Sidescan>(nh, "payload/sidescan", 1000);
+    sss_status_subscriber = nh.subscribe<smarc_msgs::SensorStatus>("payload/sidescan_status", 10, &SamMonitorWidget::sss_status_callback, this);
+    sssEnableService = roswasm::createServiceCallbackClient<std_srvs::SetBool>(nh, "payload/toggle_sidescan");
+    // first_service = nh.serviceClient<uavcan_ros_msgs::UavcanRestartNode>("/core/uavcan_restart_node", std::bind(&SamMonitorWidget::service_callback, this, std::placeholders::_1, std::placeholders::_2));
+    // first_service = createServiceCallbackClient<uavcan_ros_msgs::UavcanRestartNode>(nh, "/core/uavcan_restart_node"); //, std::bind(&SamMonitorWidget::service_callback, this, std::placeholders::_1, std::placeholders::_2));
+    first_service = roswasm::createServiceCallbackClient<uavcan_ros_msgs::UavcanRestartNode>(nh, "core/uavcan_restart_node");
+    // first_service = nh.serviceClient<uavcan_ros_msgs::UavcanRestartNode>("/sam/core/uavcan_restart_node", std::bind(&SamMonitorWidget::service_callback, this, std::placeholders::_1, std::placeholders::_2));
     system = new TopicBuffer<diagnostic_msgs::DiagnosticArray>(nh, "core/jetson_diagnostics", 1000);
     subSystem = nh.subscribe<diagnostic_msgs::DiagnosticArray>("core/jetson_diagnostics", 10, &SamMonitorWidget::callbackSystem, this);
 
@@ -614,14 +621,14 @@ SamMonitorWidget::SamMonitorWidget(roswasm::NodeHandle& nh)
 
 void SamMonitorWidget::show_window(bool& show_dashboard_window, bool guiDebug)
 {
-    ImGui::SetNextWindowSize(ImVec2(1000, 450), ImGuiCond_FirstUseEver);
+    ImGui::SetNextWindowSize(ImVec2(1000, 500), ImGuiCond_FirstUseEver);
     ImGui::Begin("Monitoring dashboard", &show_dashboard_window);
 
     std::chrono::system_clock::time_point tp = std::chrono::system_clock::now();
     std::chrono::system_clock::duration dtn = tp.time_since_epoch();
     uint32_t current_time_epoch = dtn.count() * std::chrono::system_clock::period::num / std::chrono::system_clock::period::den;
 
-    static int selectedTab = 1;
+    static int selectedTab = 0;
     const std::vector<const char*> tabNames{"Overview", "Electrical", "UAVCAN", "Jetson", "Comms", "Payloads"};
     for (int i = 0; i < tabNames.size(); i++)
     {
@@ -997,9 +1004,9 @@ void SamMonitorWidget::show_window(bool& show_dashboard_window, bool guiDebug)
                         {
                             if(ImGui::Button("RESTART", ImVec2(60, 20)))
                             {
-                                uavcan_ros_bridge::UavcanRestartNode::Request req;
+                                uavcan_ros_msgs::UavcanRestartNode::Request req;
                                 req.node_id = uavcan->get_msg().array[selectedUavcan].id;
-                                first_service.call<uavcan_ros_bridge::UavcanRestartNode>(req, std::bind(&SamMonitorWidget::service_callback, this, std::placeholders::_1, std::placeholders::_2));
+                                first_service.call<uavcan_ros_msgs::UavcanRestartNode>(req, std::bind(&SamMonitorWidget::service_callback, this, std::placeholders::_1, std::placeholders::_2));
                             }
                         }
                     }
@@ -1096,7 +1103,7 @@ void SamMonitorWidget::show_window(bool& show_dashboard_window, bool guiDebug)
         //     ImGui::EndChild();
         // }
     } else if(selectedTab == 0) {
-        const int subWindowHeight = 205;
+        const int subWindowHeight = 220;
         {
             // ImVec2 motorWindowPos = ImGui::GetCursorScreenPos();
             // ImVec2 motorOrigin = ImGui::GetCursorPos();
@@ -1120,7 +1127,7 @@ void SamMonitorWidget::show_window(bool& show_dashboard_window, bool guiDebug)
 
                 const float rangeBar = 1500.0f;
 
-                const uint32_t motorMsgAgeThresh = 5;
+                const uint32_t motorMsgAgeThresh = 8;
                 const bool motorMsgOld = motorMsgAgeThresh < current_time_epoch-thrusters_fb->get_msg().thruster_front.header.stamp.sec ? true : false;
                 const int v_fb = motorMsgOld ? 0 : thrusters_fb->get_msg().thruster_front.rpm.rpm;
                 const int v_fb2 = motorMsgOld ? 0 : thrusters_fb->get_msg().thruster_back.rpm.rpm;
@@ -1348,7 +1355,7 @@ void SamMonitorWidget::show_window(bool& show_dashboard_window, bool guiDebug)
             const int ctdWidth = 200;
             ImGui::BeginChild("CTD", ImVec2(ctdWidth, subWindowHeight), true, 0);
 
-            const uint32_t ctdMsgAgeThresh = 5;
+            const uint32_t ctdMsgAgeThresh = 8;
             const bool ctdMsgOld = ctdMsgAgeThresh < current_time_epoch-ctd->get_msg().header.stamp.sec ? true : false;
             std::string status_text;
             ImVec4 status_color4;
@@ -1391,7 +1398,7 @@ void SamMonitorWidget::show_window(bool& show_dashboard_window, bool guiDebug)
             const int dvlWidth = 200;
             ImGui::BeginChild("DVL", ImVec2(dvlWidth, subWindowHeight), true, 0);
 
-            const uint32_t dvlMsgAgeThresh = 5;
+            const uint32_t dvlMsgAgeThresh = 8;
             const bool dvlMsgOld = dvlMsgAgeThresh < current_time_epoch-dvl->get_msg().header.stamp.sec ? true : false;
             std::string status_text;
             ImVec4 status_color4;
@@ -1423,6 +1430,69 @@ void SamMonitorWidget::show_window(bool& show_dashboard_window, bool guiDebug)
             ImGui::Columns(1);
             
             ImGui::Separator();
+
+            {
+                static int lastClicked = 0;
+                ImVec4 status_color1 = ImGui::GetStyleColorVec4(ImGuiCol_Button), status_color2 = ImGui::GetStyleColorVec4(ImGuiCol_Button);
+                if (lastClicked == 1)
+                {
+                    if (dvlEnableResponse == 1)
+                    {
+                        status_color1 = good_color;
+                    }
+                    else if (dvlEnableResponse == 2)
+                    {
+                        status_color1 = warning_color;
+                    }
+                    else
+                    {
+                        status_color1 = emergency_color;
+                    }
+                }
+                else if (lastClicked == 2)
+                {
+                    if (dvlEnableResponse == 1)
+                    {
+                        status_color2 = good_color;
+                    }
+                    else if (dvlEnableResponse == 2)
+                    {
+                        status_color2 = warning_color;
+                    }
+                    else
+                    {
+                        status_color2 = emergency_color;
+                    }
+                }
+                ImGui::PushID(27);
+                ImGui::PushStyleColor(ImGuiCol_Button, status_color1);
+                ImGui::PushStyleColor(ImGuiCol_ButtonHovered, status_color1);
+                if(ImGui::Button("START", ImVec2(70, 20)))
+                {
+                    std_srvs::SetBool::Request req;
+                    const bool request = true;
+                    req.data = request;
+                    dvlEnableService.call<std_srvs::SetBool>(req, std::bind(&SamMonitorWidget::dvlEnableCallback, this, std::placeholders::_1, std::placeholders::_2));
+                    lastClicked = 1;
+                }
+                ImGui::PopStyleColor(2);
+                ImGui::PopID();
+                ImGui::SameLine();
+
+                ImGui::PushID(28);
+                ImGui::PushStyleColor(ImGuiCol_Button, status_color2);
+                ImGui::PushStyleColor(ImGuiCol_ButtonHovered, status_color2);
+                if(ImGui::Button("STOP", ImVec2(70, 20)))
+                {
+                    std_srvs::SetBool::Request req;
+                    const bool request = false;
+                    req.data = request;
+                    dvlEnableService.call<std_srvs::SetBool>(req, std::bind(&SamMonitorWidget::dvlEnableCallback, this, std::placeholders::_1, std::placeholders::_2));
+                    lastClicked = 2;
+                }
+                ImGui::PopStyleColor(2);
+                ImGui::PopID();
+            }
 
             ImGui::Text("Velocity [m/s]");
             if (dvlMsgOld)
@@ -1459,7 +1529,7 @@ void SamMonitorWidget::show_window(bool& show_dashboard_window, bool guiDebug)
             const int vbsWidth = 140;
             ImGui::BeginChild("VBS", ImVec2(vbsWidth, subWindowHeight), true, 0);
 
-            const uint32_t vbsMsgAgeThresh = 5;
+            const uint32_t vbsMsgAgeThresh = 8;
             const bool vbsMsgOld = vbsMsgAgeThresh < current_time_epoch-vbs_fb->get_msg().header.stamp.sec ? true : false;
             std::string status_text;
             ImVec4 status_color4;
@@ -1510,7 +1580,7 @@ void SamMonitorWidget::show_window(bool& show_dashboard_window, bool guiDebug)
             const int sbgWidth = 140;
             ImGui::BeginChild("SBG", ImVec2(sbgWidth, subWindowHeight), true, 0);
 
-            const uint32_t sbgMsgAgeThresh = 5;
+            const uint32_t sbgMsgAgeThresh = 8;
             const bool sbgMsgOld = sbgMsgAgeThresh < current_time_epoch-sbg_euler->get_msg().header.stamp.sec ? true : false;
             std::string status_text;
             ImVec4 status_color4;
@@ -1544,6 +1614,157 @@ void SamMonitorWidget::show_window(bool& show_dashboard_window, bool guiDebug)
             ImGui::Text("Heading: %.1f°", sbg_euler->get_msg().angle.z * (180.0/3.14));
             ImGui::Text("Roll:    %.1f°", sbg_euler->get_msg().angle.x * (180.0/3.14));
             ImGui::Text("Pitch:   %.1f°", sbg_euler->get_msg().angle.y * (180.0/3.14));
+
+            ImGui::EndChild();
+        }
+        // >>>>>>>>>>>>>>>>>>>>>>>>>>>>>> Next row <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+        {
+            const int sssWidth = 200;
+            ImGui::BeginChild("SSS", ImVec2(sssWidth, subWindowHeight), true, 0);
+
+            const uint32_t sssMsgAgeThresh = 8;
+            const bool sssStatusOld = sssMsgAgeThresh < current_time_epoch-lastUpdateSSS ? true : false;
+            const bool sssMsgOld = sssMsgAgeThresh < current_time_epoch-sss->get_msg().header.stamp.sec ? true : false;
+            std::string status_text;
+            ImVec4 status_color4;
+            char label1[20];
+            if (!sssStatusOld)
+            {
+                const uint8_t status = sss_status.sensor_status;
+                if (status == 0)
+                {
+                    sprintf(label1, "%s", "OFF");
+                    status_color4 = warning_color;
+                }
+                else if (status == 1)
+                {
+                    sprintf(label1, "%s", "Active");
+                    status_color4 = good_color;
+                }
+                else if (status == 2)
+                {
+                    sprintf(label1, "%s", "Error");
+                    status_color4 = emergency_color;
+                }
+            }
+            else if (!sssMsgOld)
+            {
+                sprintf(label1, "%s", "Publishing");
+                status_color4 = warning_color;
+            }
+            else
+            {
+                sprintf(label1, "%s", "Unknown");
+                status_color4 = unknown_color;
+            }
+
+            ImGui::Columns(3, "sssTitle", false);
+            ImGui::SetColumnWidth(0,50);
+            ImGui::SetColumnWidth(1, sssWidth - 80);
+            ImGui::Text("SSS"); ImGui::NextColumn();
+            ImGui::SetCursorPosX(ImGui::GetCursorPosX() + ImGui::GetColumnWidth() - ImGui::CalcTextSize(label1).x - ImGui::GetScrollX() - 2 * ImGui::GetStyle().ItemSpacing.x);
+            ImGui::Text("%s", label1); ImGui::NextColumn();
+            ImGui::PushID(26);
+            ImGui::PushStyleColor(ImGuiCol_Button, status_color4);
+            ImGui::PushStyleColor(ImGuiCol_ButtonHovered, status_color4);
+            ImGui::PushStyleColor(ImGuiCol_ButtonActive, status_color4);
+            ImGui::Button("", ImVec2(15,15));
+            ImGui::PopStyleColor(3);
+            ImGui::PopID();
+            ImGui::Columns(1);
+            
+            ImGui::Separator();
+
+            // ImGui::Text("Velocity [m/s]");
+            // if (sssMsgOld)
+            // {
+            //     ImGui::Text("x ---"); //ImGui::SameLine(60);
+            //     ImGui::Text("y ---"); //ImGui::SameLine(50);
+            //     ImGui::Text("z ---");
+            //     ImGui::Separator();
+            //     ImGui::Text("Velocity covariance");
+            //     ImGui::Text("11: ---"); //ImGui::SameLine(50);
+            //     ImGui::Text("22: ---"); //ImGui::SameLine(50);
+            //     ImGui::Text("33: ---");
+            //     ImGui::Separator();
+            //     ImGui::Text("Altitude: ---"); ImGui::SameLine(60);
+            // }
+            // else
+            // {
+            //     ImGui::Text("x %.3f", sss->get_msg().velocity.x); //ImGui::SameLine(60);
+            //     ImGui::Text("y %.3f", sss->get_msg().velocity.y); //ImGui::SameLine(50);
+            //     ImGui::Text("z %.3f", sss->get_msg().velocity.z);
+            //     ImGui::Separator();
+            //     ImGui::Text("Velocity covariance");
+            //     ImGui::Text("11: %.3f", sss->get_msg().velocity_covariance[0]); //ImGui::SameLine(50);
+            //     ImGui::Text("22: %.3f", sss->get_msg().velocity_covariance[4]); //ImGui::SameLine(50);
+            //     ImGui::Text("33: %.3f", sss->get_msg().velocity_covariance[8]);
+            //     ImGui::Separator();
+            //     ImGui::Text("Altitude: %.1f m", sss->get_msg().altitude); ImGui::SameLine(60);
+            // }
+
+            // std_srvs::SetBool::Request req;
+
+            static int lastClicked = 0;
+            ImVec4 status_color1 = ImGui::GetStyleColorVec4(ImGuiCol_Button), status_color2 = ImGui::GetStyleColorVec4(ImGuiCol_Button);
+            if (lastClicked == 1)
+            {
+                if (sssEnableResponse == 1)
+                {
+                    status_color1 = good_color;
+                }
+                else if (sssEnableResponse == 2)
+                {
+                    status_color1 = warning_color;
+                }
+                else
+                {
+                    status_color1 = emergency_color;
+                }
+            }
+            else if (lastClicked == 2)
+            {
+                if (sssEnableResponse == 1)
+                {
+                    status_color2 = good_color;
+                }
+                else if (sssEnableResponse == 2)
+                {
+                    status_color2 = warning_color;
+                }
+                else
+                {
+                    status_color2 = emergency_color;
+                }
+            }
+            ImGui::PushID(27);
+            ImGui::PushStyleColor(ImGuiCol_Button, status_color1);
+            ImGui::PushStyleColor(ImGuiCol_ButtonHovered, status_color1);
+            if(ImGui::Button("START", ImVec2(80, 20)))
+            {
+                std_srvs::SetBool::Request req;
+                const bool request = true;
+                req.data = request;
+                sssEnableService.call<std_srvs::SetBool>(req, std::bind(&SamMonitorWidget::sssEnableCallback, this, std::placeholders::_1, std::placeholders::_2));
+                lastClicked = 1;
+            }
+            ImGui::PopStyleColor(2);
+            ImGui::PopID();
+            ImGui::SameLine();
+
+            ImGui::PushID(28);
+            ImGui::PushStyleColor(ImGuiCol_Button, status_color2);
+            ImGui::PushStyleColor(ImGuiCol_ButtonHovered, status_color2);
+            if(ImGui::Button("STOP", ImVec2(80, 20)))
+            {
+                std_srvs::SetBool::Request req;
+                const bool request = false;
+                req.data = request;
+                sssEnableService.call<std_srvs::SetBool>(req, std::bind(&SamMonitorWidget::sssEnableCallback, this, std::placeholders::_1, std::placeholders::_2));
+                lastClicked = 2;
+            }
+            ImGui::PopStyleColor(2);
+            ImGui::PopID();
 
             ImGui::EndChild();
         }
@@ -1670,7 +1891,7 @@ void SamMonitorWidget::callbackCharge(const sam_msgs::ConsumedChargeArray& msg)
         circuitCharges[msg.array[i].circuit_id] = msg.array[i].charge;
     }
 }
-void SamMonitorWidget::service_callback(const uavcan_ros_bridge::UavcanRestartNode::Response& res, bool result)
+void SamMonitorWidget::service_callback(const uavcan_ros_msgs::UavcanRestartNode::Response& res, bool result)
 {
     //topics = res.topics;
     // topics.clear();
@@ -2096,6 +2317,56 @@ void SamMonitorWidget::callbackSystem(const diagnostic_msgs::DiagnosticArray& ms
     //         btLogList.pop_back();
     //     }
     // }
+}
+void SamMonitorWidget::sss_status_callback(const smarc_msgs::SensorStatus& msg)
+{
+    const std::chrono::system_clock::time_point tp = std::chrono::system_clock::now();
+    const std::chrono::system_clock::duration dtn = tp.time_since_epoch();
+    lastUpdateSSS = dtn.count() * std::chrono::system_clock::period::num / std::chrono::system_clock::period::den;
+    sss_status = msg;
+}
+void SamMonitorWidget::sssEnableCallback(const std_srvs::SetBool::Response& res, bool result)
+{
+    if (result) // Service call successfull
+    {
+        if (res.success)    // Update successfull
+        {
+            sssEnableResponse = 1;
+        }
+        else    // Invalid request
+        {
+            sssEnableResponse = 2;
+        }
+    }
+    else    // Service call failed
+    {
+        sssEnableResponse = -2;
+    }
+}
+void SamMonitorWidget::dvl_status_callback(const smarc_msgs::SensorStatus& msg)
+{
+    const std::chrono::system_clock::time_point tp = std::chrono::system_clock::now();
+    const std::chrono::system_clock::duration dtn = tp.time_since_epoch();
+    lastUpdateDVL = dtn.count() * std::chrono::system_clock::period::num / std::chrono::system_clock::period::den;
+    dvl_status = msg;
+}
+void SamMonitorWidget::dvlEnableCallback(const std_srvs::SetBool::Response& res, bool result)
+{
+    if (result) // Service call successfull
+    {
+        if (res.success)    // Update successfull
+        {
+            dvlEnableResponse = 1;
+        }
+        else    // Invalid request
+        {
+            dvlEnableResponse = 2;
+        }
+    }
+    else    // Service call failed
+    {
+        dvlEnableResponse = -2;
+    }
 }
 // -------------------------------------- SamMonitorWidget end --------------------------------------
 

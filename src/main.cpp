@@ -188,7 +188,7 @@ void loop()
     // ImGui::Text("Connected");
     ImGui::AlignTextToFramePadding();
 
-    monlaunch_widget->getStates(nodeStates);
+    monlaunch_widget->get_states(nodeStates);
 
     nodeCrashed = false;
     int nodesCrashed = 0;
