@@ -18,7 +18,7 @@ find_package(catkin REQUIRED COMPONENTS roscpp roswasm_webgui uavcan_ros_bridge 
 catkin_package(
 #  INCLUDE_DIRS include
 #  LIBRARIES sam_webgui
-#  CATKIN_DEPENDS cola2_msgs
+ CATKIN_DEPENDS uavcan_ros_bridge
 #  DEPENDS roswasm_webgui
 )
 

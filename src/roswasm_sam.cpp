@@ -110,7 +110,7 @@ bool draw_thruster_rpms(smarc_msgs::DualThrusterRPM& msg, roswasm::Publisher& pu
 
     return lock;
 }
-*/
+// */
 
 bool draw_thruster_angles(sam_msgs::ThrusterAngles& msg, roswasm::Publisher& pub)
 {
