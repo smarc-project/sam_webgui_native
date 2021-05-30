@@ -186,7 +186,7 @@ SamActuatorWidget::SamActuatorWidget(roswasm::NodeHandle& nh) : rpm_pub_enabled(
 void SamActuatorWidget::pub_callback(const ros::TimerEvent& e)
 {
     if (rpm_pub_enabled) {
-        rpm_pub.publish(thruster_rpms->get_msg());
+        // rpm_pub.publish(thruster_rpms->get_msg());
         rpm1_pub.publish(thruster1_rpm->get_msg());
         rpm2_pub.publish(thruster2_rpm->get_msg());
     }
@@ -204,17 +204,17 @@ void SamActuatorWidget::show_window(bool& show_actuator_window)
     }
     if (ImGui::CollapsingHeader("Thruster RPMs", ImGuiTreeNodeFlags_Framed | ImGuiTreeNodeFlags_DefaultOpen)) {
         ImGui::PushID("RPMs");
-        thruster_rpms->show_widget();
-        // ImGui::PushID("First");
-        // ImGui::Text("Thruster 1");
-        // ImGui::SameLine();
-        // thruster1_rpm->show_widget();
-        // ImGui::PopID();
-        // ImGui::PushID("Second");
-        // ImGui::Text("Thruster 2");
-        // ImGui::SameLine();
-        // thruster2_rpm->show_widget();
-        // ImGui::PopID();
+        // thruster_rpms->show_widget();
+        ImGui::PushID("First");
+        ImGui::Text("Thruster 1");
+        ImGui::SameLine();
+        thruster1_rpm->show_widget();
+        ImGui::PopID();
+        ImGui::PushID("Second");
+        ImGui::Text("Thruster 2");
+        ImGui::SameLine();
+        thruster2_rpm->show_widget();
+        ImGui::PopID();
         ImGui::Checkbox("Publish RPMs at 10hz", &rpm_pub_enabled);
         ImGui::PopID();
         if (rpm_pub_enabled) { // && pub_timer == nullptr) {
@@ -2744,7 +2744,7 @@ void SamTeleopWidget::pub_callback(const ros::TimerEvent& e)
 {
     if (enabled) {
         angle_pub.publish(angles_msg);
-        rpm_pub.publish(rpm_msg);
+        // rpm_pub.publish(rpm_msg);
         rpm1_pub.publish(rpm1_msg);
         rpm2_pub.publish(rpm2_msg);
     }
