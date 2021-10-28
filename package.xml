@@ -50,6 +50,8 @@
   <build_depend>rosgraph_msgs</build_depend>
   <build_depend>uavcan_ros_msgs</build_depend>
   <build_depend>diagnostic_msgs</build_depend>
+  <build_depend condition="$ROS_PYTHON_VERSION == 2">python-requests</build_depend>
+  <build_depend condition="$ROS_PYTHON_VERSION == 3">python3-requests</build_depend>
 <!-- <build_depend>rosmon_msgs</build_depend> -->
   <exec_depend>roscpp</exec_depend>
   <exec_depend>roswasm</exec_depend>
