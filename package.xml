@@ -1,5 +1,5 @@
 <?xml version="1.0"?>
-<package format="2">
+<package format="3">
   <name>sam_webgui</name>
   <version>0.1.2</version>
   <description>The sam_webgui package</description>
