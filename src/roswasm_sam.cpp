@@ -540,7 +540,7 @@ SamMonitorWidget::SamMonitorWidget(roswasm::NodeHandle& nh)
 {
     battery = new TopicBuffer<sensor_msgs::BatteryState>(nh, "core/battery");
     circuit = new TopicBuffer<sam_msgs::CircuitStatusStampedArray>(nh, "core/circuit_status_array");
-    subCharge = nh.subscribe<sam_msgs::ConsumedChargeArray>("core/consumed_charge_array", 10, &SamMonitorWidget::callbackCharge, this);
+    subCharge = nh.subscribe("core/consumed_charge_array", 10, &SamMonitorWidget::callbackCharge, this);
     // batteryService = nh.serviceClient<sam_msgs::UavcanUpdateBattery>("/sam/core/uavcan_update_battery", std::bind(&SamMonitorWidget::batteryCallback, this, std::placeholders::_1, std::placeholders::_2));
     batteryService = roswasm::createServiceCallbackClient<sam_msgs::UavcanUpdateBattery>(nh, "core/uavcan_update_battery"); //, &SamMonitorWidget::batteryCallback, this);
     uavcan = new TopicBuffer<uavcan_ros_msgs::UavcanNodeStatusNamedArray>(nh, "core/uavcan_status");
@@ -559,18 +559,18 @@ SamMonitorWidget::SamMonitorWidget(roswasm::NodeHandle& nh)
     ctd = new TopicBuffer<smarc_msgs::CTD>(nh, "core/ctd", 1000);
     // DVL
     dvl = new TopicBuffer<cola2_msgs::DVL>(nh, "core/dvl", 1000);
-    dvl_status_subscriber = nh.subscribe<smarc_msgs::SensorStatus>("core/dvl_status", 10, &SamMonitorWidget::dvl_status_callback, this);
+    dvl_status_subscriber = nh.subscribe("core/dvl_status", 10, &SamMonitorWidget::dvl_status_callback, this);
     dvlEnableService = roswasm::createServiceCallbackClient<std_srvs::SetBool>(nh, "core/toggle_dvl");
     // SSS
     sss = new TopicBuffer<smarc_msgs::Sidescan>(nh, "payload/sidescan", 1000);
-    sss_status_subscriber = nh.subscribe<smarc_msgs::SensorStatus>("payload/sidescan_status", 10, &SamMonitorWidget::sss_status_callback, this);
+    sss_status_subscriber = nh.subscribe("payload/sidescan_status", 10, &SamMonitorWidget::sss_status_callback, this);
     sssEnableService = roswasm::createServiceCallbackClient<std_srvs::SetBool>(nh, "payload/toggle_sidescan");
     // first_service = nh.serviceClient<uavcan_ros_msgs::UavcanRestartNode>("/core/uavcan_restart_node", std::bind(&SamMonitorWidget::service_callback, this, std::placeholders::_1, std::placeholders::_2));
     // first_service = createServiceCallbackClient<uavcan_ros_msgs::UavcanRestartNode>(nh, "/core/uavcan_restart_node"); //, std::bind(&SamMonitorWidget::service_callback, this, std::placeholders::_1, std::placeholders::_2));
     first_service = roswasm::createServiceCallbackClient<uavcan_ros_msgs::UavcanRestartNode>(nh, "core/uavcan_restart_node");
     // first_service = nh.serviceClient<uavcan_ros_msgs::UavcanRestartNode>("/sam/core/uavcan_restart_node", std::bind(&SamMonitorWidget::service_callback, this, std::placeholders::_1, std::placeholders::_2));
     system = new TopicBuffer<diagnostic_msgs::DiagnosticArray>(nh, "core/jetson_diagnostics", 1000);
-    subSystem = nh.subscribe<diagnostic_msgs::DiagnosticArray>("core/jetson_diagnostics", 10, &SamMonitorWidget::callbackSystem, this);
+    subSystem = nh.subscribe("core/jetson_diagnostics", 10, &SamMonitorWidget::callbackSystem, this);
 
     depth = new TopicBuffer<std_msgs::Float64>(nh, "ctrl/depth_feedback", 1000);
     pitch = new TopicBuffer<std_msgs::Float64>(nh, "ctrl/pitch_feedback", 1000);
@@ -578,7 +578,7 @@ SamMonitorWidget::SamMonitorWidget(roswasm::NodeHandle& nh)
     yaw = new TopicBuffer<std_msgs::Float64>(nh, "ctrl/yaw_feedback", 1000);
     motorTemp = new TopicBuffer<sensor_msgs::Temperature>(nh, "core/motor_temp", 1000);
     motorPressure = new TopicBuffer<sensor_msgs::FluidPressure>(nh, "core/motor_oil_pressure", 1000);
-    sbg_euler = new TopicBuffer<sbg_driver::SbgEkfEuler>(nh, "sbg/ekf_euler", 1000);
+    //sbg_euler = new TopicBuffer<sbg_driver::SbgEkfEuler>(nh, "sbg/ekf_euler", 1000);
 }
 
 void SamMonitorWidget::show_window(bool& show_dashboard_window, bool guiDebug)
@@ -1543,11 +1543,12 @@ void SamMonitorWidget::show_window(bool& show_dashboard_window, bool guiDebug)
             ImGui::BeginChild("SBG", ImVec2(sbgWidth, subWindowHeight), true, 0);
 
             const uint32_t sbgMsgAgeThresh = 8;
-            const bool sbgMsgOld = sbgMsgAgeThresh < current_time_epoch-sbg_euler->get_msg().header.stamp.sec ? true : false;
+            //const bool sbgMsgOld = sbgMsgAgeThresh < current_time_epoch-sbg_euler->get_msg().header.stamp.sec ? true : false;
             std::string status_text;
             ImVec4 status_color4;
             char label1[10];
-            if (sbgMsgOld)
+            //if (sbgMsgOld)
+            if (true)
             {
                 sprintf(label1, "%s", "Inactive");
                 status_color4 = warning_color;
@@ -1573,9 +1574,12 @@ void SamMonitorWidget::show_window(bool& show_dashboard_window, bool guiDebug)
             ImGui::PopID();
             ImGui::Columns(1);
             ImGui::Separator();
+            /*
             ImGui::Text("Heading: %.1f°", sbg_euler->get_msg().angle.z * (180.0/3.14));
             ImGui::Text("Roll:    %.1f°", sbg_euler->get_msg().angle.x * (180.0/3.14));
             ImGui::Text("Pitch:   %.1f°", sbg_euler->get_msg().angle.y * (180.0/3.14));
+            */
+            ImGui::Text("Raw SBG IMU display is not supported yet!");
 
             ImGui::EndChild();
         }
@@ -2410,7 +2414,7 @@ void SamLogWidget::show_window(bool& show_roslog_window, bool guiDebug)
     
     if(logEnable && !subLogEnabled)
     {
-        subLog = nhLocal->subscribe<rosgraph_msgs::Log>("/rosout", 10, &SamLogWidget::callbackLog, this);
+        subLog = nhLocal->subscribe("/rosout", 10, &SamLogWidget::callbackLog, this);
         subLogEnabled = true;
         // subLog = nhLocal.subscribe<rosgraph_msgs::Log>("/rosout", std::bind(&SamLogWidget::callbackLog, this, std::placeholders::_1), 10);
     }

@@ -42,7 +42,7 @@
 
 #include <cola2_msgs/DVL.h>
 
-#include <sbg_driver/SbgEkfEuler.h>
+//#include <sbg_driver/SbgEkfEuler.h>
 
 #include <list>
 #include <chrono>
@@ -213,7 +213,7 @@ private:
     TopicBuffer<std_msgs::Float64>* yaw;
     TopicBuffer<sensor_msgs::Temperature>* motorTemp;
     TopicBuffer<sensor_msgs::FluidPressure>* motorPressure;
-    TopicBuffer<sbg_driver::SbgEkfEuler>* sbg_euler;
+    //TopicBuffer<sbg_driver::SbgEkfEuler>* sbg_euler;
     // TopicBuffer<rosgraph_msgs::Log>* log;
     const ImVec4 emergency_color = ImVec4(1.0f, 0.0f, 0.0f, 1.00f);
     const ImVec4 warning_color = ImVec4(0.87f, 0.57f, 0.0f, 1.00f);
