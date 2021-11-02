@@ -1748,7 +1748,12 @@ void SamMonitorWidget::show_window(bool& show_dashboard_window, bool guiDebug)
             ImGui::Separator();
             ImGui::Columns(2);
             ImGui::SetColumnWidth(0, jSize[0]/2);
-            ImGui::Text("Power mode: %s", powerModes[nvMode]);
+            if (nvMode == -1) {
+                ImGui::Text("Power mode: %s", "Missing info");
+            }
+            else {
+                ImGui::Text("Power mode: %s", powerModes[nvMode]);
+            }
             ImGui::NextColumn();
             if (jetsonClocks)
             {
@@ -1832,7 +1837,7 @@ void SamMonitorWidget::show_window(bool& show_dashboard_window, bool guiDebug)
         static int selected = 0;
         ImGui::Text("Jetson"); ImGui::SameLine(100);
         ImGui::InputInt("message", &selected);
-        {
+        if (system->get_msg().status.size() > selected) {
             ImGui::BeginChild("Jetsons", ImGui::GetContentRegionAvail(), true, 0);
             ImGui::Text("name:        %s", system->get_msg().status[selected].name.c_str());
             ImGui::Text("message:     %s", system->get_msg().status[selected].message.c_str());
