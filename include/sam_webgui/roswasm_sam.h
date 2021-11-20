@@ -30,7 +30,6 @@
 #include <sam_msgs/UavcanUpdateBattery.h>
 
 #include <smarc_msgs/DualThrusterFeedback.h>
-#include <smarc_msgs/DualThrusterRPM.h>
 #include <smarc_msgs/ThrusterRPM.h>
 #include <smarc_msgs/CTD.h>
 #include <smarc_msgs/Sidescan.h>
@@ -53,7 +52,6 @@ namespace roswasm_webgui {
 
 bool draw_ballast_angles(sam_msgs::BallastAngles& msg, roswasm::Publisher& pub);
 bool draw_percent(sam_msgs::PercentStamped& msg, roswasm::Publisher& pub);
-bool draw_thruster_rpms(smarc_msgs::DualThrusterRPM& msg, roswasm::Publisher& pub);
 bool draw_thruster_rpm(smarc_msgs::ThrusterRPM& msg, roswasm::Publisher& pub);
 bool draw_thruster_angles(sam_msgs::ThrusterAngles& msg, roswasm::Publisher& pub);
 // // bool draw_bar_signed(sam_msgs::ThrusterAngles& msg, roswasm::Publisher& pub);
@@ -68,7 +66,6 @@ private:
     TopicWidget<smarc_msgs::ThrusterRPM>* thruster1_rpm;
     TopicWidget<smarc_msgs::ThrusterRPM>* thruster2_rpm;
 
-    TopicWidget<smarc_msgs::DualThrusterRPM>* thruster_rpms;
     roswasm::Publisher rpm_pub;
     roswasm::Publisher rpm1_pub;
     roswasm::Publisher rpm2_pub;
@@ -166,7 +163,6 @@ private:
     TopicBuffer<sensor_msgs::Temperature>* vbs_temp;
     TopicBuffer<sam_msgs::PercentStamped>* lcg;
     TopicBuffer<smarc_msgs::DualThrusterFeedback>* thrusters_fb;
-    TopicBuffer<smarc_msgs::DualThrusterRPM>* thrusters_cmd;
     TopicBuffer<smarc_msgs::ThrusterRPM>* thruster1_cmd;
     TopicBuffer<smarc_msgs::ThrusterRPM>* thruster2_cmd;
     TopicBuffer<smarc_msgs::ThrusterFeedback>* thruster1_fb;
@@ -252,7 +248,6 @@ private:
     smarc_msgs::ThrusterRPM rpm2_msg;
     roswasm::Publisher rpm1_pub;
     roswasm::Publisher rpm2_pub;
-    smarc_msgs::DualThrusterRPM rpm_msg;
     roswasm::Publisher rpm_pub;
     // roswasm::Publisher* angle_pub;
     roswasm::Publisher angle_pub;

@@ -75,43 +75,6 @@ bool draw_thruster_rpm(smarc_msgs::ThrusterRPM& msg, roswasm::Publisher& pub)
     return lock;
 }
 
-bool draw_thruster_rpms(smarc_msgs::DualThrusterRPM& msg, roswasm::Publisher& pub)
-
-{
-    ImGui::PushID("First cmd slider");
-    ImGui::Text("Thruster 1");
-    ImGui::SameLine();
-    ImGui::SliderInt("", &msg.thruster_front.rpm, -1000, 1000, "%drpm");
-    if (ImGui::IsItemDeactivatedAfterChange()) {
-        pub.publish(msg);
-    }
-    bool lock = ImGui::IsItemActive();
-    ImGui::PopID();
-    ImGui::SameLine();
-    ImGui::InputInt("First cmd input", &msg.thruster_front.rpm);
-    if (ImGui::IsItemDeactivatedAfterChange()) {
-        pub.publish(msg);
-    }
-
-    ImGui::PushID("Second cmd slider");
-    ImGui::Text("Thruster 2");
-    ImGui::SameLine();
-    ImGui::SliderInt("", &msg.thruster_back.rpm, -1000, 1000, "%drpm");
-    if (ImGui::IsItemDeactivatedAfterChange()) {
-        pub.publish(msg);
-    }
-    lock = lock || ImGui::IsItemActive();
-    ImGui::PopID();
-    ImGui::SameLine();
-    ImGui::InputInt("Second cmd input", &msg.thruster_back.rpm);
-    if (ImGui::IsItemDeactivatedAfterChange()) {
-        pub.publish(msg);
-    }
-
-    return lock;
-}
-// */
-
 bool draw_thruster_angles(sam_msgs::ThrusterAngles& msg, roswasm::Publisher& pub)
 {
     const double pi_ = 3.14159265359;
@@ -154,13 +117,8 @@ bool draw_thruster_angles(sam_msgs::ThrusterAngles& msg, roswasm::Publisher& pub
 
 SamActuatorWidget::SamActuatorWidget(roswasm::NodeHandle& nh) : rpm_pub_enabled(false)
 {
-    //thruster_angles = new TopicPairWidget<geometry_msgs::Pose2D, std_msgs::Float64>(nh, DrawFloatPair("Hori (rad)", -0.1, 0.18, "Vert (rad)", -0.1, 0.15), "core/thrust_vector_cmd", "core/thrust_fb1", "core/thrust_fb2");
-    //thruster_rpms = new TopicPairWidget<geometry_msgs::Pose2D, std_msgs::Float64>(nh, DrawFloatPair("Thruster 1", -1000., 1000., "Thruster 2", -1000., 1000.), "core/rpm_cmd", "core/rpm_fb1", "core/rpm_fb2");
     thruster_angles = new TopicWidget<sam_msgs::ThrusterAngles>(nh, &draw_thruster_angles, "core/thrust_vector_cmd");
-    // thruster_rpms = new TopicWidget<sam_msgs::ThrusterRPMs>(nh, &draw_thruster_rpms, "core/rpm_cmd", "core/rpm_fb");
 
-    thruster_rpms = new TopicWidget<smarc_msgs::DualThrusterRPM>(nh, &draw_thruster_rpms, "core/thrusters_cmd", "core/thrusters_cmd");
-    rpm_pub = nh.advertise<smarc_msgs::DualThrusterRPM>("core/thrusters_cmd", 1000);
 
     thruster1_rpm = new TopicWidget<smarc_msgs::ThrusterRPM>(nh, &draw_thruster_rpm, "core/thruster1_cmd");
     thruster2_rpm = new TopicWidget<smarc_msgs::ThrusterRPM>(nh, &draw_thruster_rpm, "core/thruster2_cmd");
@@ -186,7 +144,6 @@ SamActuatorWidget::SamActuatorWidget(roswasm::NodeHandle& nh) : rpm_pub_enabled(
 void SamActuatorWidget::pub_callback(const ros::TimerEvent& e)
 {
     if (rpm_pub_enabled) {
-        // rpm_pub.publish(thruster_rpms->get_msg());
         rpm1_pub.publish(thruster1_rpm->get_msg());
         rpm2_pub.publish(thruster2_rpm->get_msg());
     }
@@ -204,7 +161,6 @@ void SamActuatorWidget::show_window(bool& show_actuator_window)
     }
     if (ImGui::CollapsingHeader("Thruster RPMs", ImGuiTreeNodeFlags_Framed | ImGuiTreeNodeFlags_DefaultOpen)) {
         ImGui::PushID("RPMs");
-        // thruster_rpms->show_widget();
         ImGui::PushID("First");
         ImGui::Text("Thruster 1");
         ImGui::SameLine();
@@ -551,7 +507,6 @@ SamMonitorWidget::SamMonitorWidget(roswasm::NodeHandle& nh)
     vbs_temp = new TopicBuffer<sensor_msgs::Temperature>(nh, "core/vbs_tank_temperature", 1000);
     lcg = new TopicBuffer<sam_msgs::PercentStamped>(nh, "core/lcg_fb", 1000);
     thrusters_fb = new TopicBuffer<smarc_msgs::DualThrusterFeedback>(nh, "core/thrusters_fb", 1000);
-    thrusters_cmd = new TopicBuffer<smarc_msgs::DualThrusterRPM>(nh, "core/thrusters_cmd", 1000);
     thruster1_fb = new TopicBuffer<smarc_msgs::ThrusterFeedback>(nh, "core/thruster1_fb", 1000);
     thruster2_fb = new TopicBuffer<smarc_msgs::ThrusterFeedback>(nh, "core/thruster2_fb", 1000);
     thruster1_cmd = new TopicBuffer<smarc_msgs::ThrusterRPM>(nh, "core/thruster1_cmd", 1000);
@@ -1094,16 +1049,13 @@ void SamMonitorWidget::show_window(bool& show_dashboard_window, bool guiDebug)
                 const int v_fb = motorMsgOld ? 0 : thrusters_fb->get_msg().thruster_front.rpm.rpm;
                 const int v_fb2 = motorMsgOld ? 0 : thrusters_fb->get_msg().thruster_back.rpm.rpm;
 
-                const int v_cmd = thrusters_cmd->get_msg().thruster_front.rpm ? thrusters_cmd->get_msg().thruster_front.rpm : 0;
-                const int v_cmd2 = thrusters_cmd->get_msg().thruster_back.rpm ? thrusters_cmd->get_msg().thruster_back.rpm : 0;
-
                 // const bool motorMsgOld1 = motorMsgAgeThresh < current_time_epoch-thruster1_fb->get_msg().header.stamp.sec ? true : false;
                 // const int v_fb = motorMsgOld1 ? 0 : thruster1_fb->get_msg().rpm.rpm;
                 // const bool motorMsgOld2 = motorMsgAgeThresh < current_time_epoch-thruster1_fb->get_msg().header.stamp.sec ? true : false;
                 // const int v_fb2 = motorMsgOld2 ? 0 : thruster2_fb->get_msg().rpm.rpm;
 
-                // const int v_cmd = thruster1_cmd->get_msg().rpm ? thruster1_cmd->get_msg().rpm : 0;
-                // const int v_cmd2 = thruster2_cmd->get_msg().rpm ? thruster2_cmd->get_msg().rpm : 0;
+                const int v_cmd = thruster1_cmd->get_msg().rpm ? thruster1_cmd->get_msg().rpm : 0;
+                const int v_cmd2 = thruster2_cmd->get_msg().rpm ? thruster2_cmd->get_msg().rpm : 0;
                 
                 // static int v_fb = 0;
                 // ImGui::SliderInt("fb", &v_fb, -1000, 1000);
@@ -2742,7 +2694,6 @@ void SamLogWidget::callbackLog(const rosgraph_msgs::Log& msg)
 SamTeleopWidget::SamTeleopWidget(roswasm::NodeHandle& nh) : enabled(false) //, pub_timer(nullptr)
 {
     angle_pub = nh.advertise<sam_msgs::ThrusterAngles>("core/thrust_vector_cmd", 1000);
-    rpm_pub = nh.advertise<smarc_msgs::DualThrusterRPM>("core/thrusters_cmd", 1000);
     rpm1_pub = nh.advertise<smarc_msgs::ThrusterRPM>("core/thruster1_cmd", 1000);
     rpm2_pub = nh.advertise<smarc_msgs::ThrusterRPM>("core/thruster2_cmd", 1000);
     pub_timer = nh.createTimer(roswasm::Duration(0.08), std::bind(&SamTeleopWidget::pub_callback, this, std::placeholders::_1));
@@ -2753,7 +2704,6 @@ void SamTeleopWidget::pub_callback(const ros::TimerEvent& e)
 {
     if (enabled) {
         angle_pub.publish(angles_msg);
-        // rpm_pub.publish(rpm_msg);
         rpm1_pub.publish(rpm1_msg);
         rpm2_pub.publish(rpm2_msg);
     }
@@ -2768,7 +2718,6 @@ void SamTeleopWidget::show_window(bool& show_teleop_window)
     ImGui::Begin("Keyboard teleop", &show_teleop_window);
 
     angles_msg.thruster_vertical_radians = angles_msg.thruster_horizontal_radians = 0.0f;
-    rpm_msg.thruster_front.rpm = rpm_msg.thruster_back.rpm = 0;
     rpm1_msg.rpm = rpm2_msg.rpm = 0;
     static int teleopRPM = 800;
 
@@ -2892,8 +2841,6 @@ void SamTeleopWidget::show_window(bool& show_teleop_window)
     }
     if (ImGui::Button("w") || key_down) {
         rpm1_msg.rpm = rpm2_msg.rpm = teleopRPM;
-        rpm_msg.thruster_front.rpm = teleopRPM;
-        rpm_msg.thruster_back.rpm = teleopRPM;
     }
     if (key_down) {
         ImGui::PopStyleColor();   
@@ -2904,8 +2851,6 @@ void SamTeleopWidget::show_window(bool& show_teleop_window)
     }
     if (ImGui::Button("s") || key_down) {
         rpm1_msg.rpm = rpm2_msg.rpm = -teleopRPM;
-        rpm_msg.thruster_front.rpm = -teleopRPM;
-        rpm_msg.thruster_back.rpm = -teleopRPM;
     }
     if (key_down) {
         ImGui::PopStyleColor();   
