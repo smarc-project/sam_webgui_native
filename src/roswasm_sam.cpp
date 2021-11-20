@@ -259,6 +259,8 @@ SamDashboardWidget::SamDashboardWidget(roswasm::NodeHandle& nh) : was_leak(false
 void SamDashboardWidget::show_window(bool& show_dashboard_window)
 {
     ImGui::Begin("Status dashboard", &show_dashboard_window);
+    const int columnSpacing1 = 130;
+    const int columnSpacing2 = 260;
 
     std::chrono::system_clock::time_point tp = std::chrono::system_clock::now();
     std::chrono::system_clock::duration dtn = tp.time_since_epoch();
@@ -300,18 +302,18 @@ void SamDashboardWidget::show_window(bool& show_dashboard_window)
         ImGui::SameLine();
         ImGui::Text("%s", status_text.c_str());
 
-        ImGui::SameLine(150);
+        ImGui::SameLine(columnSpacing1);
         ImGui::Text("Battery: %.0f%%", 100.*battery->get_msg().percentage);
 
-        ImGui::SameLine(300);
-        ImGui::Text("Motor temp: %.0f °C", motorTemp->get_msg().temperature-273.15);
+        ImGui::SameLine(columnSpacing2);
+        ImGui::Text("Motor: %.0f °C", motorTemp->get_msg().temperature-273.15);
     }
 
     if (ImGui::CollapsingHeader("GPS and depth", ImGuiTreeNodeFlags_Framed | ImGuiTreeNodeFlags_DefaultOpen)) {
         ImGui::Text("Lat: %.5f", gps->get_msg().latitude);
-        ImGui::SameLine(150);
+        ImGui::SameLine(columnSpacing1);
         ImGui::Text("Lon: %.5f", gps->get_msg().longitude);
-        ImGui::SameLine(300);
+        ImGui::SameLine(columnSpacing2);
         const uint32_t dvlMsgAgeThresh = 8;
         const bool dvlMsgOld = dvlMsgAgeThresh < current_time_epoch-dvl->get_msg().header.stamp.sec ? true : false;
         if (dvlMsgOld)
@@ -326,25 +328,25 @@ void SamDashboardWidget::show_window(bool& show_dashboard_window)
 
     if (ImGui::CollapsingHeader("DR translation", ImGuiTreeNodeFlags_Framed | ImGuiTreeNodeFlags_DefaultOpen)) {
         ImGui::Text("X: %.2fm", odom_x->get_msg().data);
-        ImGui::SameLine(150);
+        ImGui::SameLine(columnSpacing1);
         ImGui::Text("Y: %.2fm", odom_y->get_msg().data);
-        ImGui::SameLine(300);
+        ImGui::SameLine(columnSpacing2);
         ImGui::Text("Depth: %.2fm", depth->get_msg().data);
     }
 
     if (ImGui::CollapsingHeader("DR rotation", ImGuiTreeNodeFlags_Framed | ImGuiTreeNodeFlags_DefaultOpen)) {
         ImGui::Text("Roll: %.2fdeg", 180./M_PI*roll->get_msg().data);
-        ImGui::SameLine(150);
+        ImGui::SameLine(columnSpacing1);
         ImGui::Text("Pitch: %.2fdeg", 180./M_PI*pitch->get_msg().data);
-        ImGui::SameLine(300);
+        ImGui::SameLine(columnSpacing2);
         ImGui::Text("Yaw: %.2fdeg", 180./M_PI*yaw->get_msg().data);
     }
 
     if (ImGui::CollapsingHeader("Actuator feedback", ImGuiTreeNodeFlags_Framed | ImGuiTreeNodeFlags_DefaultOpen)) {
         ImGui::Text("VBS pos: %.2f%%", vbs_fb->get_msg().value);
-        ImGui::SameLine(150);
+        ImGui::SameLine(columnSpacing1);
         ImGui::Text("LCG pos: %.2f%%", lcg->get_msg().value);
-        ImGui::SameLine(300);
+        ImGui::SameLine(columnSpacing2);
         // ImGui::Text("RPMs: F %d, B %d rpm", rpms->get_msg().thruster_front.rpm.rpm, rpms->get_msg().thruster_back.rpm.rpm);
         ImGui::Text("RPMs: F %d, B %d rpm", rpm1->get_msg().rpm.rpm, rpm2->get_msg().rpm.rpm);
     }
