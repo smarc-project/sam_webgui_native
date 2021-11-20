@@ -29,8 +29,9 @@
 #include <sam_msgs/ConsumedChargeArray.h>
 #include <sam_msgs/UavcanUpdateBattery.h>
 
-#include <smarc_msgs/DualThrusterFeedback.h>
+// #include <smarc_msgs/DualThrusterFeedback.h>
 #include <smarc_msgs/ThrusterRPM.h>
+#include <smarc_msgs/ThrusterFeedback.h>
 #include <smarc_msgs/CTD.h>
 #include <smarc_msgs/Sidescan.h>
 #include <smarc_msgs/SensorStatus.h>
@@ -98,9 +99,9 @@ private:
     TopicBuffer<sam_msgs::PercentStamped>* vbs_fb;
     TopicBuffer<sam_msgs::PercentStamped>* lcg;
 
-    //TopicBuffer<smarc_msgs::ThrusterRPM>* rpm1;
-    //TopicBuffer<smarc_msgs::ThrusterRPM>* rpm2;
-    TopicBuffer<smarc_msgs::DualThrusterFeedback>* rpms;
+    TopicBuffer<smarc_msgs::ThrusterFeedback>* rpm1;
+    TopicBuffer<smarc_msgs::ThrusterFeedback>* rpm2;
+    // TopicBuffer<smarc_msgs::DualThrusterFeedback>* rpms;
     // TopicBuffer<smarc_msgs::ThrusterRPM>* rpm1;rpm1_pub
     TopicBuffer<cola2_msgs::DVL>* dvl;
     TopicBuffer<std_msgs::Float64>* odom_x;
@@ -162,7 +163,7 @@ private:
     TopicBuffer<sensor_msgs::FluidPressure>* vbs_pressure;
     TopicBuffer<sensor_msgs::Temperature>* vbs_temp;
     TopicBuffer<sam_msgs::PercentStamped>* lcg;
-    TopicBuffer<smarc_msgs::DualThrusterFeedback>* thrusters_fb;
+    // TopicBuffer<smarc_msgs::DualThrusterFeedback>* thrusters_fb;
     TopicBuffer<smarc_msgs::ThrusterRPM>* thruster1_cmd;
     TopicBuffer<smarc_msgs::ThrusterRPM>* thruster2_cmd;
     TopicBuffer<smarc_msgs::ThrusterFeedback>* thruster1_fb;

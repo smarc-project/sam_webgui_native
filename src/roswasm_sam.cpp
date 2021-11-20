@@ -242,10 +242,10 @@ SamDashboardWidget::SamDashboardWidget(roswasm::NodeHandle& nh) : was_leak(false
     // odom = new TopicBuffer<nav_msgs::Odometry>(nh, "dr/odom", 1000);
     vbs_fb = new TopicBuffer<sam_msgs::PercentStamped>(nh, "core/vbs_fb", 1000);
     lcg = new TopicBuffer<sam_msgs::PercentStamped>(nh, "core/lcg_fb", 1000);
-    rpms = new TopicBuffer<smarc_msgs::DualThrusterFeedback>(nh, "core/thrusters_fb", 1000);
+    // rpms = new TopicBuffer<smarc_msgs::DualThrusterFeedback>(nh, "core/thrusters_fb", 1000);
     //rpms = new TopicBuffer<sam_msgs::ThrusterRPMs>(nh, "core/rpm_fb", 1000);
-    // rpm1 = new TopicBuffer<smarc_msgs::ThrusterRPM>(nh, "core/thruster1_fb", 1000);
-    // rpm2 = new TopicBuffer<smarc_msgs::ThrusterRPM>(nh, "core/thruster2_fb", 1000);
+    rpm1 = new TopicBuffer<smarc_msgs::ThrusterFeedback>(nh, "core/thruster1_fb", 1000);
+    rpm2 = new TopicBuffer<smarc_msgs::ThrusterFeedback>(nh, "core/thruster2_fb", 1000);
     dvl = new TopicBuffer<cola2_msgs::DVL>(nh, "core/dvl", 1000);
     odom_x = new TopicBuffer<std_msgs::Float64>(nh, "ctrl/odom_listener/x_feedback", 1000);
     odom_y = new TopicBuffer<std_msgs::Float64>(nh, "ctrl/odom_listener/y_feedback", 1000);
@@ -345,8 +345,8 @@ void SamDashboardWidget::show_window(bool& show_dashboard_window)
         ImGui::SameLine(150);
         ImGui::Text("LCG pos: %.2f%%", lcg->get_msg().value);
         ImGui::SameLine(300);
-        ImGui::Text("RPMs: F %d, B %d rpm", rpms->get_msg().thruster_front.rpm.rpm, rpms->get_msg().thruster_back.rpm.rpm);
-        // ImGui::Text("RPMs: F %d, B %d rpm", rpm1->get_msg().rpm.rpm, rpm2->get_msg().rpm.rpm);
+        // ImGui::Text("RPMs: F %d, B %d rpm", rpms->get_msg().thruster_front.rpm.rpm, rpms->get_msg().thruster_back.rpm.rpm);
+        ImGui::Text("RPMs: F %d, B %d rpm", rpm1->get_msg().rpm.rpm, rpm2->get_msg().rpm.rpm);
     }
 
     ImGui::End();
@@ -506,7 +506,7 @@ SamMonitorWidget::SamMonitorWidget(roswasm::NodeHandle& nh)
     vbs_pressure = new TopicBuffer<sensor_msgs::FluidPressure>(nh, "core/vbs_tank_pressure", 1000);
     vbs_temp = new TopicBuffer<sensor_msgs::Temperature>(nh, "core/vbs_tank_temperature", 1000);
     lcg = new TopicBuffer<sam_msgs::PercentStamped>(nh, "core/lcg_fb", 1000);
-    thrusters_fb = new TopicBuffer<smarc_msgs::DualThrusterFeedback>(nh, "core/thrusters_fb", 1000);
+    // thrusters_fb = new TopicBuffer<smarc_msgs::DualThrusterFeedback>(nh, "core/thrusters_fb", 1000);
     thruster1_fb = new TopicBuffer<smarc_msgs::ThrusterFeedback>(nh, "core/thruster1_fb", 1000);
     thruster2_fb = new TopicBuffer<smarc_msgs::ThrusterFeedback>(nh, "core/thruster2_fb", 1000);
     thruster1_cmd = new TopicBuffer<smarc_msgs::ThrusterRPM>(nh, "core/thruster1_cmd", 1000);
@@ -1042,17 +1042,17 @@ void SamMonitorWidget::show_window(bool& show_dashboard_window, bool guiDebug)
                 ImVec2 motorWindowPos = ImGui::GetCursorScreenPos();
                 ImVec2 motorOrigin = ImGui::GetCursorPos();
 
-                const float rangeBar = 1500.0f;
+                const float rangeBar = 2000.0f;
 
                 const uint32_t motorMsgAgeThresh = 8;
-                const bool motorMsgOld = motorMsgAgeThresh < current_time_epoch-thrusters_fb->get_msg().thruster_front.header.stamp.sec ? true : false;
-                const int v_fb = motorMsgOld ? 0 : thrusters_fb->get_msg().thruster_front.rpm.rpm;
-                const int v_fb2 = motorMsgOld ? 0 : thrusters_fb->get_msg().thruster_back.rpm.rpm;
+                // const bool motorMsgOld = motorMsgAgeThresh < current_time_epoch-thrusters_fb->get_msg().thruster_front.header.stamp.sec ? true : false;
+                // const int v_fb = motorMsgOld ? 0 : thrusters_fb->get_msg().thruster_front.rpm.rpm;
+                // const int v_fb2 = motorMsgOld ? 0 : thrusters_fb->get_msg().thruster_back.rpm.rpm;
 
-                // const bool motorMsgOld1 = motorMsgAgeThresh < current_time_epoch-thruster1_fb->get_msg().header.stamp.sec ? true : false;
-                // const int v_fb = motorMsgOld1 ? 0 : thruster1_fb->get_msg().rpm.rpm;
-                // const bool motorMsgOld2 = motorMsgAgeThresh < current_time_epoch-thruster1_fb->get_msg().header.stamp.sec ? true : false;
-                // const int v_fb2 = motorMsgOld2 ? 0 : thruster2_fb->get_msg().rpm.rpm;
+                const bool motorMsgOld1 = motorMsgAgeThresh < current_time_epoch-thruster1_fb->get_msg().header.stamp.sec ? true : false;
+                const int v_fb = motorMsgOld1 ? 0 : thruster1_fb->get_msg().rpm.rpm;
+                const bool motorMsgOld2 = motorMsgAgeThresh < current_time_epoch-thruster1_fb->get_msg().header.stamp.sec ? true : false;
+                const int v_fb2 = motorMsgOld2 ? 0 : thruster2_fb->get_msg().rpm.rpm;
 
                 const int v_cmd = thruster1_cmd->get_msg().rpm ? thruster1_cmd->get_msg().rpm : 0;
                 const int v_cmd2 = thruster2_cmd->get_msg().rpm ? thruster2_cmd->get_msg().rpm : 0;
@@ -1151,34 +1151,34 @@ void SamMonitorWidget::show_window(bool& show_dashboard_window, bool guiDebug)
                     ImGui::SetCursorPos(ImVec2(m2LabelPos.x - ImGui::CalcTextSize("Back").x / 2, m2LabelPos.y));
                     ImGui::Text("Back");
                 }
-                {
-                    ImGui::SetCursorPosY(motorOrigin.y + pos.y + size.y + 20);
-                    ImGui::Separator();
-                    ImGui::Columns(3, "motorTable", false);
-                    ImGui::SetColumnWidth(0, motorOffset);
-                    ImGui::SetColumnWidth(1, 54);
+                // {
+                //     ImGui::SetCursorPosY(motorOrigin.y + pos.y + size.y + 20);
+                //     ImGui::Separator();
+                //     ImGui::Columns(3, "motorTable", false);
+                //     ImGui::SetColumnWidth(0, motorOffset);
+                //     ImGui::SetColumnWidth(1, 54);
 
-                    ImGui::Text("Torque  [Nm]"); ImGui::NextColumn();
-                    char label1[10];
-                    sprintf(label1, "%.2f", thrusters_fb->get_msg().thruster_front.torque);
-                    ImGui::SetCursorPosX(ImGui::GetCursorPosX() + ImGui::GetColumnWidth() - ImGui::CalcTextSize(label1).x - ImGui::GetScrollX() - 2 * ImGui::GetStyle().ItemSpacing.x);
-                    ImGui::Text("%s", label1); ImGui::NextColumn();
-                    ImGui::Text("%.2f", thrusters_fb->get_msg().thruster_back.torque); ImGui::NextColumn();
+                //     ImGui::Text("Torque  [Nm]"); ImGui::NextColumn();
+                //     char label1[10];
+                //     sprintf(label1, "%.2f", thrusters_fb->get_msg().thruster_front.torque);
+                //     ImGui::SetCursorPosX(ImGui::GetCursorPosX() + ImGui::GetColumnWidth() - ImGui::CalcTextSize(label1).x - ImGui::GetScrollX() - 2 * ImGui::GetStyle().ItemSpacing.x);
+                //     ImGui::Text("%s", label1); ImGui::NextColumn();
+                //     ImGui::Text("%.2f", thrusters_fb->get_msg().thruster_back.torque); ImGui::NextColumn();
 
-                    ImGui::Text("Current [A]"); ImGui::NextColumn();
-                    sprintf(label1, "%.1f", thrusters_fb->get_msg().thruster_front.current);
-                    ImGui::SetCursorPosX(ImGui::GetCursorPosX() + ImGui::GetColumnWidth() - ImGui::CalcTextSize(label1).x - ImGui::GetScrollX() - 2 * ImGui::GetStyle().ItemSpacing.x);
-                    ImGui::Text("%s", label1); ImGui::NextColumn();
-                    ImGui::Text("%.1f", thrusters_fb->get_msg().thruster_back.current); ImGui::NextColumn();
+                //     ImGui::Text("Current [A]"); ImGui::NextColumn();
+                //     sprintf(label1, "%.1f", thrusters_fb->get_msg().thruster_front.current);
+                //     ImGui::SetCursorPosX(ImGui::GetCursorPosX() + ImGui::GetColumnWidth() - ImGui::CalcTextSize(label1).x - ImGui::GetScrollX() - 2 * ImGui::GetStyle().ItemSpacing.x);
+                //     ImGui::Text("%s", label1); ImGui::NextColumn();
+                //     ImGui::Text("%.1f", thrusters_fb->get_msg().thruster_back.current); ImGui::NextColumn();
 
-                    ImGui::Text("Temp    [°C]"); ImGui::NextColumn();
-                    sprintf(label1, "%.0f", motorTemp->get_msg().temperature-273.15);
-                    ImGui::SetCursorPosX(ImGui::GetCursorPosX() + ImGui::GetColumnWidth() - ImGui::CalcTextSize(label1).x - ImGui::GetScrollX() - 2 * ImGui::GetStyle().ItemSpacing.x);
-                    ImGui::Text("%s", label1); ImGui::NextColumn();
-                    ImGui::Text("%.0f", motorTemp->get_msg().temperature-273.15);
-                    ImGui::Columns(1);
-                }
-                /* separate motor msgs
+                //     ImGui::Text("Temp    [°C]"); ImGui::NextColumn();
+                //     sprintf(label1, "%.0f", motorTemp->get_msg().temperature-273.15);
+                //     ImGui::SetCursorPosX(ImGui::GetCursorPosX() + ImGui::GetColumnWidth() - ImGui::CalcTextSize(label1).x - ImGui::GetScrollX() - 2 * ImGui::GetStyle().ItemSpacing.x);
+                //     ImGui::Text("%s", label1); ImGui::NextColumn();
+                //     ImGui::Text("%.0f", motorTemp->get_msg().temperature-273.15);
+                //     ImGui::Columns(1);
+                // }
+                // separate motor msgs
                 {
                     ImGui::SetCursorPosY(motorOrigin.y + pos.y + size.y + 20);
                     ImGui::Separator();
@@ -1192,31 +1192,21 @@ void SamMonitorWidget::show_window(bool& show_dashboard_window, bool guiDebug)
                     sprintf(label1, "%.2f", thruster1_fb->get_msg().torque);
                     ImGui::SetCursorPosX(ImGui::GetCursorPosX() + ImGui::GetColumnWidth() - ImGui::CalcTextSize(label1).x - ImGui::GetScrollX() - 2 * ImGui::GetStyle().ItemSpacing.x);
                     ImGui::Text("%s", label1); ImGui::NextColumn();
-                    // sprintf(label1, "%.2f", thrusters_fb->get_msg().thruster_back.torque);
-                    // ImGui::SetCursorPosX(ImGui::GetCursorPosX() + ImGui::GetColumnWidth() - ImGui::CalcTextSize(label1).x - ImGui::GetScrollX() - 2 * ImGui::GetStyle().ItemSpacing.x);
-                    // ImGui::Text("%s", label1); ImGui::NextColumn();
                     ImGui::Text("%.2f", thruster2_fb->get_msg().torque); ImGui::NextColumn();
 
                     ImGui::Text("Current [A]"); ImGui::NextColumn();
                     sprintf(label1, "%.1f", thruster1_fb->get_msg().current);
                     ImGui::SetCursorPosX(ImGui::GetCursorPosX() + ImGui::GetColumnWidth() - ImGui::CalcTextSize(label1).x - ImGui::GetScrollX() - 2 * ImGui::GetStyle().ItemSpacing.x);
                     ImGui::Text("%s", label1); ImGui::NextColumn();
-                    // sprintf(label1, "%.1f", thrusters_fb->get_msg().thruster_back.current);
-                    // ImGui::SetCursorPosX(ImGui::GetCursorPosX() + ImGui::GetColumnWidth() - ImGui::CalcTextSize(label1).x - ImGui::GetScrollX() - 2 * ImGui::GetStyle().ItemSpacing.x);
-                    // ImGui::Text("%s", label1); ImGui::NextColumn();
-                    // ImGui::Text("%.1f", thrusters_fb->get_msg().thruster_front.current); ImGui::NextColumn();
                     ImGui::Text("%.1f", thruster2_fb->get_msg().current); ImGui::NextColumn();
 
                     ImGui::Text("Temp    [°C]"); ImGui::NextColumn();
                     sprintf(label1, "%.0f", motorTemp->get_msg().temperature-273.15);
                     ImGui::SetCursorPosX(ImGui::GetCursorPosX() + ImGui::GetColumnWidth() - ImGui::CalcTextSize(label1).x - ImGui::GetScrollX() - 2 * ImGui::GetStyle().ItemSpacing.x);
                     ImGui::Text("%s", label1); ImGui::NextColumn();
-                    // ImGui::SetCursorPosX(ImGui::GetCursorPosX() + ImGui::GetColumnWidth() - ImGui::CalcTextSize(label1).x - ImGui::GetScrollX() - 2 * ImGui::GetStyle().ItemSpacing.x);
-                    // ImGui::Text("%s", label1); ImGui::NextColumn();
-                    // ImGui::Text("%.0f", motorTemp->get_msg().temperature-273.15); ImGui::NextColumn();
                     ImGui::Text("%.0f", motorTemp->get_msg().temperature-273.15);
                     ImGui::Columns(1);
-                }*/
+                }
 
 
 
