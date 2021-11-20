@@ -247,12 +247,18 @@ SamDashboardWidget::SamDashboardWidget(roswasm::NodeHandle& nh) : was_leak(false
     rpm1 = new TopicBuffer<smarc_msgs::ThrusterFeedback>(nh, "core/thruster1_fb", 1000);
     rpm2 = new TopicBuffer<smarc_msgs::ThrusterFeedback>(nh, "core/thruster2_fb", 1000);
     dvl = new TopicBuffer<cola2_msgs::DVL>(nh, "core/dvl", 1000);
-    odom_x = new TopicBuffer<std_msgs::Float64>(nh, "ctrl/odom_listener/x_feedback", 1000);
-    odom_y = new TopicBuffer<std_msgs::Float64>(nh, "ctrl/odom_listener/y_feedback", 1000);
-    depth = new TopicBuffer<std_msgs::Float64>(nh, "ctrl/odom_listener/depth_feedback", 1000);
-    pitch = new TopicBuffer<std_msgs::Float64>(nh, "ctrl/odom_listener/pitch_feedback", 1000);
-    roll = new TopicBuffer<std_msgs::Float64>(nh, "ctrl/odom_listener/roll_feedback", 1000);
-    yaw = new TopicBuffer<std_msgs::Float64>(nh, "ctrl/odom_listener/yaw_feedback", 1000);
+    // odom_x = new TopicBuffer<std_msgs::Float64>(nh, "ctrl/odom_listener/x_feedback", 1000);
+    // odom_y = new TopicBuffer<std_msgs::Float64>(nh, "ctrl/odom_listener/y_feedback", 1000);
+    // depth = new TopicBuffer<std_msgs::Float64>(nh, "ctrl/odom_listener/depth_feedback", 1000);
+    // pitch = new TopicBuffer<std_msgs::Float64>(nh, "ctrl/odom_listener/pitch_feedback", 1000);
+    // roll = new TopicBuffer<std_msgs::Float64>(nh, "ctrl/odom_listener/roll_feedback", 1000);
+    // yaw = new TopicBuffer<std_msgs::Float64>(nh, "ctrl/odom_listener/yaw_feedback", 1000);
+    odom_x = new TopicBuffer<std_msgs::Float64>(nh, "dr/x", 1000);
+    odom_y = new TopicBuffer<std_msgs::Float64>(nh, "dr/y", 1000);
+    depth = new TopicBuffer<std_msgs::Float64>(nh, "dr/depth", 1000);
+    pitch = new TopicBuffer<std_msgs::Float64>(nh, "dr/pitch", 1000);
+    roll = new TopicBuffer<std_msgs::Float64>(nh, "dr/roll", 1000);
+    yaw = new TopicBuffer<std_msgs::Float64>(nh, "dr/yaw", 1000);
     motorTemp = new TopicBuffer<sensor_msgs::Temperature>(nh, "core/motor_temp", 1000);
 }
 
