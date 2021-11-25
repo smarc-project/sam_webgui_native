@@ -29,12 +29,12 @@
 #include <sam_msgs/ConsumedChargeArray.h>
 #include <sam_msgs/UavcanUpdateBattery.h>
 
-// #include <smarc_msgs/DualThrusterFeedback.h>
 #include <smarc_msgs/ThrusterRPM.h>
 #include <smarc_msgs/ThrusterFeedback.h>
 #include <smarc_msgs/CTD.h>
 #include <smarc_msgs/Sidescan.h>
 #include <smarc_msgs/SensorStatus.h>
+#include <smarc_msgs/ControllerStatus.h>
 
 #include <uavcan_ros_msgs/CircuitStatus.h>
 #include <uavcan_ros_msgs/UavcanNodeStatusNamedArray.h>
@@ -67,20 +67,19 @@ private:
     TopicWidget<smarc_msgs::ThrusterRPM>* thruster1_rpm;
     TopicWidget<smarc_msgs::ThrusterRPM>* thruster2_rpm;
 
-    roswasm::Publisher rpm_pub;
     roswasm::Publisher rpm1_pub;
     roswasm::Publisher rpm2_pub;
     roswasm::Timer pub_timer;
     bool rpm_pub_enabled;
     TopicWidget<sam_msgs::PercentStamped>* lcg_actuator;
-    TopicWidget<std_msgs::Bool>* lcg_control_enable;
-    TopicWidget<std_msgs::Float64>* lcg_control_setpoint;
+    // TopicWidget<std_msgs::Bool>* lcg_control_enable;
+    // TopicWidget<std_msgs::Float64>* lcg_control_setpoint;
     TopicWidget<sam_msgs::PercentStamped>* vbs_actuator;
-    TopicWidget<std_msgs::Bool>* vbs_control_enable;
-    TopicWidget<std_msgs::Float64>* vbs_control_setpoint;
+    // TopicWidget<std_msgs::Bool>* vbs_control_enable;
+    // TopicWidget<std_msgs::Float64>* vbs_control_setpoint;
     TopicWidget<sam_msgs::BallastAngles>* tcg_actuator;
-    TopicWidget<std_msgs::Bool>* tcg_control_enable;
-    TopicWidget<std_msgs::Float64>* tcg_control_setpoint;
+    // TopicWidget<std_msgs::Bool>* tcg_control_enable;
+    // TopicWidget<std_msgs::Float64>* tcg_control_setpoint;
 
 public:
     void pub_callback(const ros::TimerEvent& e);
@@ -101,7 +100,6 @@ private:
 
     TopicBuffer<smarc_msgs::ThrusterFeedback>* rpm1;
     TopicBuffer<smarc_msgs::ThrusterFeedback>* rpm2;
-    // TopicBuffer<smarc_msgs::DualThrusterFeedback>* rpms;
     // TopicBuffer<smarc_msgs::ThrusterRPM>* rpm1;rpm1_pub
     TopicBuffer<cola2_msgs::DVL>* dvl;
     TopicBuffer<std_msgs::Float64>* odom_x;
@@ -117,28 +115,6 @@ public:
     void show_window(bool& show_dashboard_window);
     SamDashboardWidget(roswasm::NodeHandle& nh);
 };
-
-// class SamDashboardWidget2 {
-// private:
-//     bool was_leak;
-//     TopicBuffer<smarc_msgs::Leak>* leak;
-//     TopicBuffer<sensor_msgs::NavSatFix>* gps;
-//     TopicBuffer<sensor_msgs::BatteryState>* battery;
-//     TopicBuffer<nav_msgs::Odometry>* odom;
-//     TopicBuffer<sam_msgs::PercentStamped>* vbs_fb;
-//     TopicBuffer<sam_msgs::PercentStamped>* lcg;
-//     // TopicBuffer<smarc_msgs::DualThrusterFeedback>* rpms;
-//     TopicBuffer<smarc_msgs::ThrusterRPM>* rpm1;
-//     TopicBuffer<smarc_msgs::ThrusterRPM>* rpm2;
-//     TopicBuffer<std_msgs::Float64>* depth;
-//     TopicBuffer<std_msgs::Float64>* pitch;
-//     TopicBuffer<std_msgs::Float64>* roll;
-//     TopicBuffer<std_msgs::Float64>* yaw;
-// public:
-//     bool is_emergency() { return was_leak; }
-//     void show_window(bool& show_dashboard2_window);
-//     SamDashboardWidget2(roswasm::NodeHandle& nh);
-// };
 
 // ---------------------------------------- SamMonitorWidget ----------------------------------------
 class SamMonitorWidget {
@@ -163,7 +139,6 @@ private:
     TopicBuffer<sensor_msgs::FluidPressure>* vbs_pressure;
     TopicBuffer<sensor_msgs::Temperature>* vbs_temp;
     TopicBuffer<sam_msgs::PercentStamped>* lcg;
-    // TopicBuffer<smarc_msgs::DualThrusterFeedback>* thrusters_fb;
     TopicBuffer<smarc_msgs::ThrusterRPM>* thruster1_cmd;
     TopicBuffer<smarc_msgs::ThrusterRPM>* thruster2_cmd;
     TopicBuffer<smarc_msgs::ThrusterFeedback>* thruster1_fb;
@@ -190,6 +165,7 @@ private:
 
     roswasm::ServiceCallbackClient first_service;
     void service_callback(const uavcan_ros_msgs::UavcanRestartNode::Response& res, bool result);
+
     TopicBuffer<diagnostic_msgs::DiagnosticArray>* system;
     roswasm::Subscriber subSystem;
     void callbackSystem(const diagnostic_msgs::DiagnosticArray& msg);
@@ -222,6 +198,62 @@ public:
 };
 // -------------------------------------- SamMonitorWidget end --------------------------------------
 
+// ---------------------------------------- SamControllersWidget ----------------------------------------
+class SamControllersWidget {
+private:
+    // Depth
+    roswasm::ServiceCallbackClient toggleVbsCtrl;
+    void toggleVbsCtrlCallback(const std_srvs::SetBool::Response& res, bool result);
+    int8_t vbsCtrlResponse = -1;
+    roswasm::ServiceCallbackClient toggleDepthCtrl;
+    void toggleDepthCtrlCallback(const std_srvs::SetBool::Response& res, bool result);
+    int8_t depthCtrlResponse = -1;
+
+    roswasm::Subscriber depthControllerStatusSubscriber;
+    void depthControllerStatusCallback(const smarc_msgs::ControllerStatus& msg);
+    uint32_t depthControllerLastUpdate = 0;
+    int depthCtrlSum = -100;
+    smarc_msgs::ControllerStatus depthControllerStatus;
+
+    roswasm::Publisher depthSetpointPublisher;
+    TopicBuffer<std_msgs::Float64>* depthSetpointSubscriber;
+    TopicBuffer<std_msgs::Float64>* depthSubscriber;
+
+    // Altitude
+    roswasm::ServiceCallbackClient toggleStaticAltitudeCtrl;
+    void toggleStaticAltitudeCtrlCallback(const std_srvs::SetBool::Response& res, bool result);
+    int8_t staticAltitudeCtrlResponse = -1;
+    roswasm::ServiceCallbackClient toggleDynamicAltitudeCtrl;
+    void toggleDynamicAltitudeCtrlCallback(const std_srvs::SetBool::Response& res, bool result);
+    int8_t dynamicAltitudeCtrlResponse = -1;
+
+    roswasm::Subscriber altitudeControllerStatusSubscriber;
+    void altitudeControllerStatusCallback(const smarc_msgs::ControllerStatus& msg);
+    uint32_t altitudeControllerLastUpdate = 0;
+    int altitudeCtrlSum = -100;
+    smarc_msgs::ControllerStatus altitudeControllerStatus;
+
+    roswasm::Publisher altitudeSetpointPublisher;
+    TopicBuffer<std_msgs::Float64>* altitudeSetpointSubscriber;
+    TopicBuffer<cola2_msgs::DVL>* dvl;  // To get altitude
+    
+    // Vertical
+    std::vector<bool> verticalControllersActive{0, 0, 0, 0};
+    int verticalCtrlSum = 0;
+
+    const ImVec4 dark_red_color = ImVec4(0.30f, 0.0f, 0.0f, 1.00f);
+    const ImVec4 emergency_color = ImVec4(1.0f, 0.0f, 0.0f, 1.00f);
+    const ImVec4 warning_color = ImVec4(0.87f, 0.57f, 0.0f, 1.00f);
+    const ImVec4 good_color = ImVec4(0.0f, 0.71f, 0.06f, 1.00f);
+    const ImVec4 unknown_color = ImVec4(0.50f, 0.50f, 0.50f, 1.00f);
+
+    // roswasm::NodeHandle* nhLocal;
+public:
+    void show_window(bool& show_controllers_window, bool guiDebug);
+    SamControllersWidget(roswasm::NodeHandle& nh);
+};
+// -------------------------------------- SamLogWidget end --------------------------------------
+
 // ---------------------------------------- SamLogWidget ----------------------------------------
 class SamLogWidget {
 private:
@@ -249,7 +281,6 @@ private:
     smarc_msgs::ThrusterRPM rpm2_msg;
     roswasm::Publisher rpm1_pub;
     roswasm::Publisher rpm2_pub;
-    roswasm::Publisher rpm_pub;
     // roswasm::Publisher* angle_pub;
     roswasm::Publisher angle_pub;
     roswasm::Timer pub_timer;

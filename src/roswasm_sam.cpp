@@ -126,16 +126,16 @@ SamActuatorWidget::SamActuatorWidget(roswasm::NodeHandle& nh) : rpm_pub_enabled(
     rpm2_pub = nh.advertise<smarc_msgs::ThrusterRPM>("core/thruster2_cmd", 1000);
 
     lcg_actuator = new TopicWidget<sam_msgs::PercentStamped>(nh, &draw_percent, "core/lcg_cmd", "core/lcg_fb");
-    lcg_control_enable = new TopicWidget<std_msgs::Bool>(nh, &draw_bool, "ctrl/lcg/pid_enable");
-    lcg_control_setpoint = new TopicWidget<std_msgs::Float64>(nh, DrawFloat64(-1.6, 1.6), "ctrl/lcg/setpoint"); //, -1.6, 1.6)
+    // lcg_control_enable = new TopicWidget<std_msgs::Bool>(nh, &draw_bool, "ctrl/lcg/pid_enable");
+    // lcg_control_setpoint = new TopicWidget<std_msgs::Float64>(nh, DrawFloat64(-1.6, 1.6), "ctrl/lcg/setpoint"); //, -1.6, 1.6)
 
     vbs_actuator = new TopicWidget<sam_msgs::PercentStamped>(nh, &draw_percent, "core/vbs_cmd", "core/vbs_fb");
-    vbs_control_enable = new TopicWidget<std_msgs::Bool>(nh, &draw_bool, "ctrl/vbs/pid_enable");
-    vbs_control_setpoint = new TopicWidget<std_msgs::Float64>(nh, DrawFloat64(0., 5.), "ctrl/vbs/setpoint"); //, 0 5)
+    // vbs_control_enable = new TopicWidget<std_msgs::Bool>(nh, &draw_bool, "ctrl/vbs/pid_enable");
+    // vbs_control_setpoint = new TopicWidget<std_msgs::Float64>(nh, DrawFloat64(0., 5.), "ctrl/vbs/setpoint"); //, 0 5)
         
     tcg_actuator = new TopicWidget<sam_msgs::BallastAngles>(nh, &draw_ballast_angles, "core/tcg_cmd");
-    tcg_control_enable = new TopicWidget<std_msgs::Bool>(nh, &draw_bool, "ctrl/tcg/pid_enable");
-    tcg_control_setpoint = new TopicWidget<std_msgs::Float64>(nh, DrawFloat64(-1.6, 1.6), "ctrl/tcg/setpoint"); //, -1.6, 1.6)
+    // tcg_control_enable = new TopicWidget<std_msgs::Bool>(nh, &draw_bool, "ctrl/tcg/pid_enable");
+    // tcg_control_setpoint = new TopicWidget<std_msgs::Float64>(nh, DrawFloat64(-1.6, 1.6), "ctrl/tcg/setpoint"); //, -1.6, 1.6)
 
     pub_timer = nh.createTimer(roswasm::Duration(0.08), std::bind(&SamActuatorWidget::pub_callback, this, std::placeholders::_1));
     pub_timer.stop();
@@ -191,11 +191,11 @@ void SamActuatorWidget::show_window(bool& show_actuator_window)
         ImGui::PushID("Actuator");
         lcg_actuator->show_widget();
         ImGui::PopID();
-        lcg_control_enable->show_widget();
+        // lcg_control_enable->show_widget();
         ImGui::Text("Pitch (rad)");
         ImGui::SameLine();
         ImGui::PushID("Control");
-        lcg_control_setpoint->show_widget();
+        // lcg_control_setpoint->show_widget();
         ImGui::PopID();
         ImGui::PopID();
     }
@@ -206,11 +206,11 @@ void SamActuatorWidget::show_window(bool& show_actuator_window)
         ImGui::PushID("Actuator");
         vbs_actuator->show_widget();
         ImGui::PopID();
-        vbs_control_enable->show_widget();
+        // vbs_control_enable->show_widget();
         ImGui::Text("Depth (m)");
         ImGui::SameLine();
         ImGui::PushID("Control");
-        vbs_control_setpoint->show_widget();
+        // vbs_control_setpoint->show_widget();
         ImGui::PopID();
         ImGui::PopID();
     }
@@ -221,11 +221,11 @@ void SamActuatorWidget::show_window(bool& show_actuator_window)
         ImGui::PushID("Actuator");
         tcg_actuator->show_widget();
         ImGui::PopID();
-        tcg_control_enable->show_widget();
+        // tcg_control_enable->show_widget();
         ImGui::Text("Roll (rad)");
         ImGui::SameLine();
         ImGui::PushID("Control");
-        tcg_control_setpoint->show_widget();
+        // tcg_control_setpoint->show_widget();
         ImGui::PopID();
         ImGui::PopID();
     }
@@ -242,17 +242,9 @@ SamDashboardWidget::SamDashboardWidget(roswasm::NodeHandle& nh) : was_leak(false
     // odom = new TopicBuffer<nav_msgs::Odometry>(nh, "dr/odom", 1000);
     vbs_fb = new TopicBuffer<sam_msgs::PercentStamped>(nh, "core/vbs_fb", 1000);
     lcg = new TopicBuffer<sam_msgs::PercentStamped>(nh, "core/lcg_fb", 1000);
-    // rpms = new TopicBuffer<smarc_msgs::DualThrusterFeedback>(nh, "core/thrusters_fb", 1000);
-    //rpms = new TopicBuffer<sam_msgs::ThrusterRPMs>(nh, "core/rpm_fb", 1000);
     rpm1 = new TopicBuffer<smarc_msgs::ThrusterFeedback>(nh, "core/thruster1_fb", 1000);
     rpm2 = new TopicBuffer<smarc_msgs::ThrusterFeedback>(nh, "core/thruster2_fb", 1000);
     dvl = new TopicBuffer<cola2_msgs::DVL>(nh, "core/dvl", 1000);
-    // odom_x = new TopicBuffer<std_msgs::Float64>(nh, "ctrl/odom_listener/x_feedback", 1000);
-    // odom_y = new TopicBuffer<std_msgs::Float64>(nh, "ctrl/odom_listener/y_feedback", 1000);
-    // depth = new TopicBuffer<std_msgs::Float64>(nh, "ctrl/odom_listener/depth_feedback", 1000);
-    // pitch = new TopicBuffer<std_msgs::Float64>(nh, "ctrl/odom_listener/pitch_feedback", 1000);
-    // roll = new TopicBuffer<std_msgs::Float64>(nh, "ctrl/odom_listener/roll_feedback", 1000);
-    // yaw = new TopicBuffer<std_msgs::Float64>(nh, "ctrl/odom_listener/yaw_feedback", 1000);
     odom_x = new TopicBuffer<std_msgs::Float64>(nh, "dr/x", 1000);
     odom_y = new TopicBuffer<std_msgs::Float64>(nh, "dr/y", 1000);
     depth = new TopicBuffer<std_msgs::Float64>(nh, "dr/depth", 1000);
@@ -360,145 +352,6 @@ void SamDashboardWidget::show_window(bool& show_dashboard_window)
     ImGui::End();
 }
 
-
-// SamDashboardWidget2::SamDashboardWidget2(roswasm::NodeHandle& nh) : was_leak(false)
-// {
-//     leak = new TopicBuffer<smarc_msgs::Leak>(nh, "core/leak_fb");
-//     gps = new TopicBuffer<sensor_msgs::NavSatFix>(nh, "core/gps");
-//     battery = new TopicBuffer<sensor_msgs::BatteryState>(nh, "core/battery_fb");
-//     odom = new TopicBuffer<nav_msgs::Odometry>(nh, "dr/odom", 1000);
-//     vbs_fb = new TopicBuffer<sam_msgs::PercentStamped>(nh, "core/vbs_fb", 1000);
-//     lcg = new TopicBuffer<sam_msgs::PercentStamped>(nh, "core/lcg_fb", 1000);
-//     // rpms = new TopicBuffer<smarc_msgs::DualThrusterFeedback>(nh, "core/thrusters_fb", 1000);
-//     rpm1 = new TopicBuffer<smarc_msgs::ThrusterRPM>(nh, "core/thruster1_cmd", 1000);
-//     rpm2 = new TopicBuffer<smarc_msgs::ThrusterRPM>(nh, "core/thruster2_cmd", 1000);
-//     depth = new TopicBuffer<std_msgs::Float64>(nh, "ctrl/depth_feedback", 1000);
-//     pitch = new TopicBuffer<std_msgs::Float64>(nh, "ctrl/pitch_feedback", 1000);
-//     roll = new TopicBuffer<std_msgs::Float64>(nh, "ctrl/roll_feedback", 1000);
-//     yaw = new TopicBuffer<std_msgs::Float64>(nh, "ctrl/yaw_feedback", 1000);
-// }
-
-// void SamDashboardWidget2::show_window(bool& show_dashboard_window)
-// {
-//     ImGui::SetNextWindowSize(ImVec2(500, 243), ImGuiCond_FirstUseEver);
-
-//     ImGuiWindowFlags window_flags = 0;
-//     window_flags |= ImGuiWindowFlags_MenuBar;
-//     ImGui::Begin("Experiments dashboard", &show_dashboard_window, window_flags);
-
-//     // Menu
-//     if (ImGui::BeginMenuBar())
-//     {
-//         if (ImGui::BeginMenu("Strange"))
-//         {
-//             ImGui::MenuItem("Green");
-//             ImGui::MenuItem("Fish");
-//             // ImGui::MenuItem("Teleop", NULL, &show_teleop_window);
-//             // ImGui::MenuItem("Main menu bar", NULL, &show_app_main_menu_bar);
-//             // ImGui::MenuItem("Console", NULL, &show_app_console);
-//             // ImGui::MenuItem("Log", NULL, &show_app_log);
-//             // ImGui::MenuItem("Simple layout", NULL, &show_app_layout);
-//             // ImGui::MenuItem("Property editor", NULL, &show_app_property_editor);
-//             // ImGui::MenuItem("Long text display", NULL, &show_app_long_text);
-//             // ImGui::MenuItem("Auto-resizing window", NULL, &show_app_auto_resize);
-//             // ImGui::MenuItem("Constrained-resizing window", NULL, &show_app_constrained_resize);
-//             // ImGui::MenuItem("Simple overlay", NULL, &show_app_simple_overlay);
-//             // ImGui::MenuItem("Manipulating window titles", NULL, &show_app_window_titles);
-//             // ImGui::MenuItem("Custom rendering", NULL, &show_app_custom_rendering);
-//             ImGui::EndMenu();
-//         }
-//         ImGui::EndMenuBar();
-//     }
-    
-//     static int selectedTab = 0;
-//     const std::vector<const char*> tabNames{"tab1", "tab2", "tab3", "tab4"};
-//     for (int i = 0; i < 4; i++)
-//     {
-//         if (i > 0) ImGui::SameLine();
-//         ImGui::PushID(i);
-//         if(selectedTab == i) {
-//             // ImGui::PushStyleColor(ImGuiCol_Button, (ImVec4)ImColor::HSV(0.55f, 1.0f, 1.0f));
-//             ImGui::PushStyleColor(ImGuiCol_Button, ImGui::GetColorU32(ImGuiCol_FrameBgActive));
-//         } else {
-//             // ImGui::PushStyleColor(ImGuiCol_Button, (ImVec4)ImColor::HSV(0.0f, 0.0f, 1.0f));
-//             ImGui::PushStyleColor(ImGuiCol_Button, ImGui::GetColorU32(ImGuiCol_FrameBg));
-//         }
-//         // ImGui::PushStyleColor(ImGuiCol_ButtonHovered, (ImVec4)ImColor::HSV(0.55f, 0.4f, 1.0f));
-//         // ImGui::PushStyleColor(ImGuiCol_ButtonActive, (ImVec4)ImColor::HSV(0.59f, 1.0f, 1.0f));
-//         ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImGui::GetColorU32(ImGuiCol_FrameBgHovered));
-//         ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImGui::GetColorU32(ImGuiCol_FrameBgActive));
-//         if(ImGui::Button(tabNames[i], ImVec2(50,20))){
-//             selectedTab = i;
-//         }
-//         ImGui::PopStyleColor(3);
-//         ImGui::PopID();
-//     }
-//     if(guiDebug)
-//     {
-//         ImGui::Text("Choosen tab: %d", selectedTab);
-//     }
-
-//     if(selectedTab == 1) {
-//         if (ImGui::CollapsingHeader("Critical Info", ImGuiTreeNodeFlags_Framed | ImGuiTreeNodeFlags_DefaultOpen)) {
-//             was_leak = was_leak || leak->get_msg().value;
-
-//             float sz = ImGui::GetTextLineHeight();
-//             std::string status_text;
-//             ImColor status_color;
-//             if (!was_leak) {
-//                 status_text = "No leaks!";
-//                 status_color = ImColor(0, 255, 0);
-//             }
-//             else {
-//                 status_text = "Leak!!!!!";
-//                 status_color = ImColor(255, 0, 0);
-//             }
-//             ImVec2 p = ImGui::GetCursorScreenPos();
-//             ImGui::GetWindowDrawList()->AddRectFilled(p, ImVec2(p.x+sz, p.y+sz), status_color);
-//             ImGui::Dummy(ImVec2(sz, sz));
-//             ImGui::SameLine();
-//             ImGui::Text("%s", status_text.c_str());
-
-//             ImGui::SameLine(150);
-//             ImGui::Text("Battery: %.0f%%", 100.*battery->get_msg().percentage);
-//         }
-
-//         if (ImGui::CollapsingHeader("GPS and depth", ImGuiTreeNodeFlags_Framed | ImGuiTreeNodeFlags_DefaultOpen)) {
-//             ImGui::Text("Lat: %.5f", gps->get_msg().latitude);
-//             ImGui::SameLine(150);
-//             ImGui::Text("Lon: %.5f", gps->get_msg().longitude);
-//             ImGui::SameLine(300);
-//             ImGui::Text("Depth: %.2fm", depth->get_msg().data);
-//         }
-
-//         if (ImGui::CollapsingHeader("DR translation", ImGuiTreeNodeFlags_Framed | ImGuiTreeNodeFlags_DefaultOpen)) {
-//             ImGui::Text("X: %.2fm", odom->get_msg().pose.pose.position.x);
-//             ImGui::SameLine(150);
-//             ImGui::Text("Y: %.2fm", odom->get_msg().pose.pose.position.y);
-//             ImGui::SameLine(300);
-//             ImGui::Text("Z: %.2fm", odom->get_msg().pose.pose.position.z);
-//         }
-
-//         if (ImGui::CollapsingHeader("DR rotation", ImGuiTreeNodeFlags_Framed | ImGuiTreeNodeFlags_DefaultOpen)) {
-//             ImGui::Text("Roll: %.2fdeg", 180./M_PI*roll->get_msg().data);
-//             ImGui::SameLine(150);
-//             ImGui::Text("Pitch: %.2fdeg", 180./M_PI*pitch->get_msg().data);
-//             ImGui::SameLine(300);
-//             ImGui::Text("Yaw: %.2fdeg", 180./M_PI*yaw->get_msg().data);
-//         }
-
-//         if (ImGui::CollapsingHeader("Actuator feedback", ImGuiTreeNodeFlags_Framed | ImGuiTreeNodeFlags_DefaultOpen)) {
-//             ImGui::Text("VBS pos: %.2f%%", vbs_fb->get_msg().value);
-//             ImGui::SameLine(150);
-//             ImGui::Text("LCG pos: %.2f%%", lcg->get_msg().value);
-//             ImGui::SameLine(300);
-//             ImGui::Text("RPMs: F %d, B %d rpm", rpms->get_msg().thruster_front.rpm.rpm, rpms->get_msg().thruster_back.rpm.rpm);
-//         }
-//     }
-
-//     ImGui::End();
-// }
-
 // --------------------------- SamMonitorWidget ---------------------------
 SamMonitorWidget::SamMonitorWidget(roswasm::NodeHandle& nh)
 {
@@ -514,7 +367,6 @@ SamMonitorWidget::SamMonitorWidget(roswasm::NodeHandle& nh)
     vbs_pressure = new TopicBuffer<sensor_msgs::FluidPressure>(nh, "core/vbs_tank_pressure", 1000);
     vbs_temp = new TopicBuffer<sensor_msgs::Temperature>(nh, "core/vbs_tank_temperature", 1000);
     lcg = new TopicBuffer<sam_msgs::PercentStamped>(nh, "core/lcg_fb", 1000);
-    // thrusters_fb = new TopicBuffer<smarc_msgs::DualThrusterFeedback>(nh, "core/thrusters_fb", 1000);
     thruster1_fb = new TopicBuffer<smarc_msgs::ThrusterFeedback>(nh, "core/thruster1_fb", 1000);
     thruster2_fb = new TopicBuffer<smarc_msgs::ThrusterFeedback>(nh, "core/thruster2_fb", 1000);
     thruster1_cmd = new TopicBuffer<smarc_msgs::ThrusterRPM>(nh, "core/thruster1_cmd", 1000);
@@ -532,6 +384,7 @@ SamMonitorWidget::SamMonitorWidget(roswasm::NodeHandle& nh)
     // first_service = createServiceCallbackClient<uavcan_ros_msgs::UavcanRestartNode>(nh, "/core/uavcan_restart_node"); //, std::bind(&SamMonitorWidget::service_callback, this, std::placeholders::_1, std::placeholders::_2));
     first_service = roswasm::createServiceCallbackClient<uavcan_ros_msgs::UavcanRestartNode>(nh, "core/uavcan_restart_node");
     // first_service = nh.serviceClient<uavcan_ros_msgs::UavcanRestartNode>("/sam/core/uavcan_restart_node", std::bind(&SamMonitorWidget::service_callback, this, std::placeholders::_1, std::placeholders::_2));
+
     system = new TopicBuffer<diagnostic_msgs::DiagnosticArray>(nh, "core/jetson_diagnostics", 1000);
     subSystem = nh.subscribe("core/jetson_diagnostics", 10, &SamMonitorWidget::callbackSystem, this);
 
@@ -2290,6 +2143,399 @@ void SamMonitorWidget::dvlEnableCallback(const std_srvs::SetBool::Response& res,
     }
 }
 // -------------------------------------- SamMonitorWidget end --------------------------------------
+
+// --------------------------- SamControllersWidget ---------------------------
+SamControllersWidget::SamControllersWidget(roswasm::NodeHandle& nh)
+{
+    // Depth
+    toggleVbsCtrl = roswasm::createServiceCallbackClient<std_srvs::SetBool>(nh, "ctrl/toggle_vbs_ctrl");
+    toggleDepthCtrl = roswasm::createServiceCallbackClient<std_srvs::SetBool>(nh, "ctrl/toggle_depth_ctrl");
+    depthControllerStatusSubscriber = nh.subscribe("ctrl/depth_controller_status", 10, &SamControllersWidget::depthControllerStatusCallback, this);
+    depthSetpointPublisher = nh.advertise<std_msgs::Float64>("ctrl/depth_setpoint", 10);
+    depthSetpointSubscriber = new TopicBuffer<std_msgs::Float64>(nh, "ctrl/depth_setpoint", 10);
+    depthSubscriber = new TopicBuffer<std_msgs::Float64>(nh, "dr/depth", 10);
+
+    // Altitude
+    toggleStaticAltitudeCtrl = roswasm::createServiceCallbackClient<std_srvs::SetBool>(nh, "ctrl/toggle_vbs_alt_ctrl");
+    toggleDynamicAltitudeCtrl = roswasm::createServiceCallbackClient<std_srvs::SetBool>(nh, "ctrl/toggle_altitude_ctrl");
+    altitudeControllerStatusSubscriber = nh.subscribe("ctrl/altitude_controller_status", 10, &SamControllersWidget::altitudeControllerStatusCallback, this);
+    altitudeSetpointPublisher = nh.advertise<std_msgs::Float64>("ctrl/altitude_setpoint", 10);
+    altitudeSetpointSubscriber = new TopicBuffer<std_msgs::Float64>(nh, "ctrl/altitude_setpoint", 10);
+    dvl = new TopicBuffer<cola2_msgs::DVL>(nh, "core/dvl", 10);
+}
+void SamControllersWidget::show_window(bool& show_controllers_window, bool guiDebug)
+{
+    ImGui::SetNextWindowSize(ImVec2(500, 500), ImGuiCond_FirstUseEver);
+    ImGui::Begin("Controllers", &show_controllers_window);
+    std::chrono::system_clock::time_point tp = std::chrono::system_clock::now();
+    std::chrono::system_clock::duration dtn = tp.time_since_epoch();
+    uint32_t current_time_epoch = dtn.count() * std::chrono::system_clock::period::num / std::chrono::system_clock::period::den;
+
+    {
+        const int depthWidth = 200;
+        const int firstCol = 100;
+        bool verticalControllerClash = false;
+        if(verticalCtrlSum > 2)
+        {
+            verticalControllerClash = true;
+            ImGui::PushStyleColor(ImGuiCol_ChildWindowBg, emergency_color);
+        }
+        ImGui::BeginChild("verticalController", ImVec2(ImGui::GetWindowContentRegionWidth(), 140), true, 0);
+        
+        ImGui::Columns(2, "depthTitle", false);
+        ImGui::SetColumnWidth(0, 100);
+        ImGui::Text("Depth");
+        if(verticalControllerClash)
+        {
+            ImGui::NextColumn();
+            ImGui::Text("Controller conflict!!!");
+        }
+        ImGui::Columns(1);
+
+        const uint32_t depthMsgAgeThresh = 8;
+        const uint32_t altitudeMsgAgeThresh = 8;
+        const bool depthStatusOld = depthMsgAgeThresh < current_time_epoch-depthControllerLastUpdate ? true : false;
+        const bool altitudeStatusOld = altitudeMsgAgeThresh < current_time_epoch-altitudeControllerLastUpdate ? true : false;
+
+        ImGui::Separator();
+
+        // Depth
+        {
+            ImVec4 status_color4;
+            char label1[10];
+            const bool currentStatus = verticalControllersActive[0];
+            if (depthStatusOld)
+            {
+                sprintf(label1, "%s", "Unknown");
+                status_color4 = unknown_color;
+            }
+            else if (currentStatus)
+            {
+                sprintf(label1, "%s", "Active");
+                status_color4 = good_color;
+            }
+            else
+            {
+                sprintf(label1, "%s", "Inactive");
+                status_color4 = warning_color;
+            }
+            ImGui::Columns(6, "vbsTitle", false);
+            ImGui::SetColumnWidth(0, firstCol);
+            ImGui::SetColumnWidth(1, 70);
+            ImGui::SetColumnWidth(2, 30);
+            ImGui::SetColumnWidth(3, 80);
+            ImGui::SetColumnWidth(4, 80);
+            ImGui::Text("Static"); ImGui::NextColumn();
+            ImGui::SetCursorPosX(ImGui::GetCursorPosX() + ImGui::GetColumnWidth() - ImGui::CalcTextSize(label1).x - ImGui::GetScrollX() - 2 * ImGui::GetStyle().ItemSpacing.x);
+            ImGui::Text("%s", label1); ImGui::NextColumn();
+            ImGui::PushID(126);
+            ImGui::PushStyleColor(ImGuiCol_Button, status_color4);
+            ImGui::PushStyleColor(ImGuiCol_ButtonHovered, status_color4);
+            ImGui::PushStyleColor(ImGuiCol_ButtonActive, status_color4);
+            if(ImGui::Button("", ImVec2(15,15)))
+            {
+                std_srvs::SetBool::Request req;
+                const bool request = currentStatus ? false : true;
+                req.data = request;
+                toggleVbsCtrl.call<std_srvs::SetBool>(req, std::bind(&SamControllersWidget::toggleVbsCtrlCallback, this, std::placeholders::_1, std::placeholders::_2));
+            }
+            ImGui::NextColumn();
+            ImGui::PopStyleColor(3);
+            ImGui::PopID();
+            ImGui::Text("Depth"); ImGui::NextColumn();
+            ImGui::Text("Set: %.1f", depthSetpointSubscriber->get_msg().data);
+            ImGui::NextColumn();
+            ImGui::Text("Current: %.1f", depthSubscriber->get_msg().data);
+            ImGui::Columns(1);
+        }
+        {
+            ImVec4 status_color4;
+            char label1[10];
+            const bool currentStatus = verticalControllersActive[1];
+            if (depthStatusOld)
+            {
+                sprintf(label1, "%s", "Unknown");
+                status_color4 = unknown_color;
+            }
+            else if (currentStatus)
+            {
+                sprintf(label1, "%s", "Active");
+                status_color4 = good_color;
+            }
+            else
+            {
+                sprintf(label1, "%s", "Inactive");
+                status_color4 = warning_color;
+            }
+            ImGui::Columns(4, "depthTitle2", false);
+            ImGui::SetColumnWidth(0, firstCol);
+            ImGui::SetColumnWidth(1, 70);
+            ImGui::SetColumnWidth(2, 30);
+            ImGui::Text("Dynamic"); ImGui::NextColumn();
+            ImGui::SetCursorPosX(ImGui::GetCursorPosX() + ImGui::GetColumnWidth() - ImGui::CalcTextSize(label1).x - ImGui::GetScrollX() - 2 * ImGui::GetStyle().ItemSpacing.x);
+            ImGui::Text("%s", label1); ImGui::NextColumn();
+            ImGui::PushID(127);
+            ImGui::PushStyleColor(ImGuiCol_Button, status_color4);
+            ImGui::PushStyleColor(ImGuiCol_ButtonHovered, status_color4);
+            ImGui::PushStyleColor(ImGuiCol_ButtonActive, status_color4);
+            if(ImGui::Button("", ImVec2(15,15)))
+            {
+                std_srvs::SetBool::Request req;
+                const bool request2 = currentStatus ? false : true;
+                req.data = request2;
+                toggleDepthCtrl.call<std_srvs::SetBool>(req, std::bind(&SamControllersWidget::toggleDepthCtrlCallback, this, std::placeholders::_1, std::placeholders::_2));
+            }
+            ImGui::NextColumn();
+            ImGui::PopStyleColor(3);
+
+            static float cmdDepth = -1.0;
+            ImGui::InputFloat("Input (m)", &cmdDepth, 0.0f, 0.0f, "%.1f");
+            if (ImGui::IsItemDeactivatedAfterChange()) {
+                std_msgs::Float64 msgDepth;
+                msgDepth.data = cmdDepth;
+                depthSetpointPublisher.publish(msgDepth);
+            }
+            ImGui::PopID();
+            ImGui::Columns(1);
+        }
+
+        // Altitude
+        ImGui::Text("Altitude");
+        ImGui::Separator();
+        {
+            ImVec4 status_color4;
+            char label1[10];
+            const bool currentStatus = verticalControllersActive[2];
+            if (altitudeStatusOld)
+            {
+                sprintf(label1, "%s", "Unknown");
+                status_color4 = unknown_color;
+            }
+            else if (currentStatus)
+            {
+                sprintf(label1, "%s", "Active");
+                status_color4 = good_color;
+            }
+            else
+            {
+                sprintf(label1, "%s", "Inactive");
+                status_color4 = warning_color;
+            }
+            ImGui::Columns(6, "altTitle", false);
+            ImGui::SetColumnWidth(0, firstCol);
+            ImGui::SetColumnWidth(1, 70);
+            ImGui::SetColumnWidth(2, 30);
+            ImGui::SetColumnWidth(3, 80);
+            ImGui::SetColumnWidth(4, 80);
+            ImGui::Text("Static"); ImGui::NextColumn();
+            ImGui::SetCursorPosX(ImGui::GetCursorPosX() + ImGui::GetColumnWidth() - ImGui::CalcTextSize(label1).x - ImGui::GetScrollX() - 2 * ImGui::GetStyle().ItemSpacing.x);
+            ImGui::Text("%s", label1); ImGui::NextColumn();
+            ImGui::PushID(128);
+            ImGui::PushStyleColor(ImGuiCol_Button, status_color4);
+            ImGui::PushStyleColor(ImGuiCol_ButtonHovered, status_color4);
+            ImGui::PushStyleColor(ImGuiCol_ButtonActive, status_color4);
+            if(ImGui::Button("", ImVec2(15,15)))
+            {
+                std_srvs::SetBool::Request req;
+                const bool request = currentStatus ? false : true;
+                req.data = request;
+                toggleStaticAltitudeCtrl.call<std_srvs::SetBool>(req, std::bind(&SamControllersWidget::toggleStaticAltitudeCtrlCallback, this, std::placeholders::_1, std::placeholders::_2));
+            }
+            ImGui::NextColumn();
+            ImGui::PopStyleColor(3);
+            ImGui::PopID();
+            ImGui::Text("Altitude"); ImGui::NextColumn();
+            ImGui::Text("Set: %.1f", altitudeSetpointSubscriber->get_msg().data);
+            ImGui::NextColumn();
+            const uint32_t dvlMsgAgeThresh = 8;
+            const bool dvlMsgOld = dvlMsgAgeThresh < current_time_epoch-dvl->get_msg().header.stamp.sec ? true : false;
+            if (dvlMsgOld)
+            {
+                ImGui::Text("Current: ---");
+            }
+            else
+            {
+                ImGui::Text("Current: %.1f", dvl->get_msg().altitude);
+            }
+            ImGui::Columns(1);
+        }
+        {
+            ImVec4 status_color4;
+            char label1[10];
+            const bool currentStatus = verticalControllersActive[3];
+            if (altitudeStatusOld)
+            {
+                sprintf(label1, "%s", "Unknown");
+                status_color4 = unknown_color;
+            }
+            else if (currentStatus)
+            {
+                sprintf(label1, "%s", "Active");
+                status_color4 = good_color;
+            }
+            else
+            {
+                sprintf(label1, "%s", "Inactive");
+                status_color4 = warning_color;
+            }
+            ImGui::Columns(4, "dynAltTitle", false);
+            ImGui::SetColumnWidth(0, firstCol);
+            ImGui::SetColumnWidth(1, 70);
+            ImGui::SetColumnWidth(2, 30);
+            ImGui::Text("Dynamic"); ImGui::NextColumn();
+            ImGui::SetCursorPosX(ImGui::GetCursorPosX() + ImGui::GetColumnWidth() - ImGui::CalcTextSize(label1).x - ImGui::GetScrollX() - 2 * ImGui::GetStyle().ItemSpacing.x);
+            ImGui::Text("%s", label1); ImGui::NextColumn();
+            ImGui::PushID(129);
+            ImGui::PushStyleColor(ImGuiCol_Button, status_color4);
+            ImGui::PushStyleColor(ImGuiCol_ButtonHovered, status_color4);
+            ImGui::PushStyleColor(ImGuiCol_ButtonActive, status_color4);
+            if(ImGui::Button("", ImVec2(15,15)))
+            {
+                std_srvs::SetBool::Request req;
+                const bool request = currentStatus ? false : true;
+                req.data = request;
+                toggleDynamicAltitudeCtrl.call<std_srvs::SetBool>(req, std::bind(&SamControllersWidget::toggleDynamicAltitudeCtrlCallback, this, std::placeholders::_1, std::placeholders::_2));
+            }
+            ImGui::NextColumn();
+            ImGui::PopStyleColor(3);
+            static float cmdAlt = -1.0;
+            ImGui::InputFloat("Input (m)", &cmdAlt, 0.0f, 0.0f, "%.1f");
+            if (ImGui::IsItemDeactivatedAfterChange()) {
+                std_msgs::Float64 msgAlt;
+                msgAlt.data = cmdAlt;
+                altitudeSetpointPublisher.publish(msgAlt);
+            }
+            ImGui::PopID();
+            ImGui::Columns(1);
+            // ImGui::Text("Depth");
+        }
+
+
+        ImGui::EndChild();
+        if(verticalControllerClash)
+        {
+            ImGui::PopStyleColor();
+        }
+    }
+    ImGui::End();
+}
+void SamControllersWidget::toggleVbsCtrlCallback(const std_srvs::SetBool::Response& res, bool result)
+{
+    if (result) // Service call successfull
+    {
+        if (res.success)    // Update successfull
+        {
+            vbsCtrlResponse = 1;
+        }
+        else    // Invalid request
+        {
+            vbsCtrlResponse = 2;
+        }
+    }
+    else    // Service call failed
+    {
+        vbsCtrlResponse = -2;
+    }
+}
+void SamControllersWidget::toggleDepthCtrlCallback(const std_srvs::SetBool::Response& res, bool result)
+{
+    if (result) // Service call successfull
+    {
+        if (res.success)    // Update successfull
+        {
+            depthCtrlResponse = 1;
+        }
+        else    // Invalid request
+        {
+            depthCtrlResponse = 2;
+        }
+    }
+    else    // Service call failed
+    {
+        depthCtrlResponse = -2;
+    }
+}
+void SamControllersWidget::depthControllerStatusCallback(const smarc_msgs::ControllerStatus& msg)
+{
+    const std::chrono::system_clock::time_point tp = std::chrono::system_clock::now();
+    const std::chrono::system_clock::duration dtn = tp.time_since_epoch();
+    depthControllerLastUpdate = dtn.count() * std::chrono::system_clock::period::num / std::chrono::system_clock::period::den;
+    depthControllerStatus = msg;
+    if(strcmp(msg.service_name.c_str(), "/sam/ctrl/toggle_vbs_ctrl") == 0)
+    {
+        verticalControllersActive[0] = msg.control_status;
+    }
+    else if(strcmp(msg.service_name.c_str(), "/sam/ctrl/toggle_depth_ctrl") == 0)
+    {
+        verticalControllersActive[1] = msg.control_status;
+    }
+    int sum = 0;
+    for (int i = 0; i<verticalControllersActive.size(); i++)
+    {
+        sum += verticalControllersActive[i];
+    }
+    depthCtrlSum = sum;
+    verticalCtrlSum = altitudeCtrlSum + depthCtrlSum;
+}
+void SamControllersWidget::toggleStaticAltitudeCtrlCallback(const std_srvs::SetBool::Response& res, bool result)
+{
+    if (result) // Service call successfull
+    {
+        if (res.success)    // Update successfull
+        {
+            staticAltitudeCtrlResponse = 1;
+        }
+        else    // Invalid request
+        {
+            staticAltitudeCtrlResponse = 2;
+        }
+    }
+    else    // Service call failed
+    {
+        staticAltitudeCtrlResponse = -2;
+    }
+}
+void SamControllersWidget::toggleDynamicAltitudeCtrlCallback(const std_srvs::SetBool::Response& res, bool result)
+{
+    if (result) // Service call successfull
+    {
+        if (res.success)    // Update successfull
+        {
+            dynamicAltitudeCtrlResponse = 1;
+        }
+        else    // Invalid request
+        {
+            dynamicAltitudeCtrlResponse = 2;
+        }
+    }
+    else    // Service call failed
+    {
+        dynamicAltitudeCtrlResponse = -2;
+    }
+}
+void SamControllersWidget::altitudeControllerStatusCallback(const smarc_msgs::ControllerStatus& msg)
+{
+    const std::chrono::system_clock::time_point tp = std::chrono::system_clock::now();
+    const std::chrono::system_clock::duration dtn = tp.time_since_epoch();
+    altitudeControllerLastUpdate = dtn.count() * std::chrono::system_clock::period::num / std::chrono::system_clock::period::den;
+    altitudeControllerStatus = msg;
+    if(strcmp(msg.service_name.c_str(), "/sam/ctrl/toggle_vbs_alt_ctrl") == 0)
+    {
+        verticalControllersActive[2] = msg.control_status;
+    }
+    else if(strcmp(msg.service_name.c_str(), "/sam/ctrl/toggle_altitude_ctrl") == 0)
+    {
+        verticalControllersActive[3] = msg.control_status;
+    }
+    int sum = 0;
+    for (int i = 0; i<verticalControllersActive.size(); i++)
+    {
+        sum += verticalControllersActive[i];
+    }
+    altitudeCtrlSum = sum;
+    verticalCtrlSum = altitudeCtrlSum + depthCtrlSum;
+}
+// -------------------------------------- SamControllersWidget end --------------------------------------
 
 std::pair<ImVec4, const char*> healthToColoredString(const std::uint8_t health)
 {

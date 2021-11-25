@@ -32,6 +32,7 @@ roswasm_webgui::SamDashboardWidget* dashboard_widget;
 roswasm_webgui::SamTeleopWidget* teleop_widget;
 roswasm_webgui::SamMonitorWidget* monitor_widget;
 roswasm_webgui::SamLogWidget* roslog_widget;
+roswasm_webgui::SamControllersWidget* controllers_widget;
 
 GLFWwindow* g_window;
 ImVec4 clear_color = ImVec4(0.25f, 0.45f, 0.55f, 1.00f);
@@ -44,7 +45,7 @@ float col[4] = {0,0,0,0};
 int winSpacing = 30;
 int winWindth1 = 470;
 // static int guiMode = 100;
-static int guiMode = 200;
+static int guiMode = 300;
 static int guiModeOld = -1;
 // const std::vector<const char*> tabNames{"Setup", "Monitor", "Control", "Service", "Experiments"};
 const std::map<int, const char*> guiModes = {{100, "Setup"}, {200, "Monitor"}, {250, "Cameras"}, {300, "Control"}, {400, "Service"}, {999, "Develop"}};
@@ -62,6 +63,7 @@ bool show_teleop_window = false;
 bool show_monitor_window = false;
 bool show_guiStats_window = false;
 bool show_roslog_window = true;
+bool show_controllers_window = true;
 
 // bool dark_mode = true;
 bool dark_mode = true;
@@ -326,7 +328,8 @@ void loop()
         show_experiment_dash_window = false;
         show_teleop_window = true;
         show_monitor_window = true;
-        show_roslog_window = true;
+        show_roslog_window = false;
+        show_controllers_window = true;
       }
     }
 
@@ -353,6 +356,7 @@ void loop()
     ImGui::Checkbox("Log", &show_roslog_window);
     ImGui::SameLine(buttonSpacing); ImGui::Checkbox("Keyboard teleop", &show_teleop_window);
     ImGui::SameLine(2*buttonSpacing); ImGui::Checkbox("Demo widgets", &show_demo_window);      // Edit bools storing our windows open/close state
+    ImGui::Checkbox("Controllers", &show_controllers_window);
 
     if(pushDark){
       if(dark_mode){
@@ -467,6 +471,11 @@ void loop()
   if (show_roslog_window) {
       ImGui::SetNextWindowPos(ImVec2(1072, 500), ImGuiCond_FirstUseEver);
       roslog_widget->show_window(show_roslog_window, guiDebug);
+  }
+
+  if (show_controllers_window) {
+      ImGui::SetNextWindowPos(ImVec2(1072, 500), ImGuiCond_FirstUseEver);
+      controllers_widget->show_window(show_controllers_window, guiDebug);
   }
 
   ImGui::Render();
@@ -656,6 +665,7 @@ extern "C" int main(int argc, char** argv)
   teleop_widget = new roswasm_webgui::SamTeleopWidget(*nh);
   monitor_widget = new roswasm_webgui::SamMonitorWidget(*nh);
   roslog_widget = new roswasm_webgui::SamLogWidget(*nh);
+  controllers_widget = new roswasm_webgui::SamControllersWidget(*nh);
 
   // panic_pub = nh->advertise<std_msgs::String>("core/panic_cmd");
 
