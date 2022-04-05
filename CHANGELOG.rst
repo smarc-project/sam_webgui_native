@@ -2,8 +2,8 @@
 Changelog for package sam_webgui_native
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Forthcoming
------------
+0.1.4 (2022-04-05)
+------------------
 * Merge pull request `#5 <https://github.com/smarc-project-native-gui/sam_webgui_native/issues/5>`_ from smarc-project-native-gui/merge_upstream
   Merge upstream
 * Merged upstream
